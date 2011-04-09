@@ -1,0 +1,62 @@
+<window>
+	<defaultcontrol always="true">1501</defaultcontrol>
+	<allowoverlays>false</allowoverlays>
+	<controls>
+	<!-- static content -->
+		<control type="group">
+            <control type="label" id="180">
+				<description>Status label</description>
+				<posx>50</posx>
+				<posy>20</posy>
+				<width>450</width>
+				<height>50</height>
+				<font>font20</font>
+				<align>center</align>
+				<textcolor>FF009CFF</textcolor>
+				<shadowcolor>00000000</shadowcolor>
+                <wrapmultiline>true</wrapmultiline>
+			</control>
+            <control type="listcontrol" id="181">
+                <description>My first list control</description>
+                <posx>80</posx>
+                <posy>60</posy>
+                <width>250</width>
+                <height>200</height>
+                <visible>true</visible>
+                <colordiffuse>FFFFFFFF</colordiffuse>
+                <texturefocus>myfocustexture.png</texturefocus>
+                <texturenofocus>mynormaltexture.png</texturenofocus>
+                <font>font13</font>
+                <textcolor>FFFFFFFF</textcolor>
+                <selectedcolor>FFFFFFFF</selectedcolor>
+                <font2>font12</font2>
+                <textcolor2>FFFFFFFF</textcolor2>
+                <selectedcolor2>FFFFFFFF</selectedcolor2>
+                <suffix> | </suffix>
+                <aligny>center</aligny>
+                <textxoff>5</textxoff>
+                <textyoff>4</textyoff>
+                <textxoff2>4</textxoff2>
+                <textyoff2>5</textyoff2>
+                <itemwidth>20</itemwidth>
+                <itemheight>20</itemheight>
+                <textureheight>16</textureheight>
+                <spacebetweenitems>2</spacebetweenitems>
+                <spinposx>220</spinposx>
+                <spinposy>180</spinposy>
+                <spinwidth>16</spinwidth>
+                <spinheight>16</spinheight>
+                <spincolor>FFFFFFFF</spincolor>
+                <textureup>myuptexture.png</textureup>
+                <textureupfocus>myuptexture.png</textureupfocus>
+                <texturedown>myuptexture.png</texturedown>
+                <texturedownfocus>myuptexture.png</texturedownfocus>
+                <pulseonselect></pulseonselect>
+                <onup>2</onup>
+                <ondown>3</ondown>
+                <onleft>1</onleft>
+                <onright>1</onright>
+            </control>
+		</control>
+	</controls>
+</window>

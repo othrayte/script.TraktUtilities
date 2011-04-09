@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# @author Ralph-Gordon Paul
+# @author Ralph-Gordon Paul, Adrian Cowan (othrayte)
 # 
 
 import os
@@ -58,7 +58,18 @@ def showTrendingMovies():
     if len(options) == 0:
         xbmcgui.Dialog().ok("Trakt Utilities", "there are no trending movies")
         return
+        
+    import trendingMovies
+    print os.getcwd()
+    ui = trendingMovies.GUI("trending-movies.xml", __settings__.getAddonInfo('path'), "default", False)
+    ui.doModal()
+    mylist = ui.getControl(181)
+    for movie in data:
+        mylist.addControl(xbmcgui.ControlImage(10, 10, 100, 100, movie['images']['poster']))
     
+    
+    
+    """
     while True:
         select = xbmcgui.Dialog().select(__language__(1250).encode( "utf-8", "ignore" ), options) # Trending Movies
         Debug("Select: " + str(select))
@@ -67,6 +78,7 @@ def showTrendingMovies():
             return
         
         playMovie(data[select]['imdb_id'], data[select]['title'])
+    """
 
 def showTrendingTVShows():
 
