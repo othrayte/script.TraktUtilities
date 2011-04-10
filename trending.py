@@ -50,28 +50,22 @@ def showTrendingMovies():
         return # error already displayed in utilities.py
 
     for movie in data:
-        try:
-            options.append(movie['title'])
-        except KeyError:
-            pass # Error ? skip this movie
+        movie['idMovie'] = getMovieIdFromXBMC(movie['imdb_id'], movie['title'])
     
-    if len(options) == 0:
+    if len(data) == 0:
         xbmcgui.Dialog().ok("Trakt Utilities", "there are no trending movies")
         return
         
     import trendingMovies
     print os.getcwd()
     ui = trendingMovies.GUI("trending-movies.xml", __settings__.getAddonInfo('path'), "default", False)
+    ui.setData(data)
     ui.doModal()
-    mylist = ui.getControl(181)
-    for movie in data:
-        mylist.addControl(xbmcgui.ControlImage(10, 10, 100, 100, movie['images']['poster']))
-    
     
     
     """
     while True:
-        select = xbmcgui.Dialog().select(__language__(1250).encode( "utf-8", "ignore" ), options) # Trending Movies
+        select = xbmcgui.Dialog().select(, options) # Trending Movies
         Debug("Select: " + str(select))
         if select == -1:
             Debug ("menu quit by user")

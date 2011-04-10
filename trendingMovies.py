@@ -4,6 +4,7 @@
 
 import os
 import xbmc,xbmcaddon,xbmcgui
+from utilities import *
 
 try:
     # Python 3.0 +
@@ -41,30 +42,56 @@ class GUI(xbmcgui.WindowXML):
         # Doing strXMLname = "bah.xml" will not change anything.
         # don't put GUI sensitive stuff here (as the xml hasn't been read yet
         # Idea to initialize your variables here
-        self.doModal()
         pass
  
     def onInit(self):
         # Put your List Populating code/ and GUI startup stuff here
-        self.getControl(180).setLabel("Trakt - Trending Movies")
+        self.getControl(180).setLabel("Trakt - "+__language__(1250).encode( "utf-8", "ignore" ))
         mylist = self.getControl(181)
-        for movie in data:
-            mylist.addControl(xbmcgui.ControlImage(10, 10, 100, 100, movie['images']['poster']))
+        items = []
+        for movie in self.movies:
+            item = xbmcgui.ListItem(movie['title'].encode( "utf-8", "ignore" ), str(movie['year']), movie['images']['poster'].encode( "utf-8", "ignore" ))
+            items.append(item)
+            print movie['title'].encode( "utf-8", "ignore" )    
+        mylist.addItems(items)
+        self.onChange()
         pass 
- 
+    
+    def setData(self, data):
+        self.movies = data    
+    
+    def onChange(self):
+        mylist = self.getControl(181)
+        self.current = mylist.getSelectedPosition()
+        self.getControl(182).setImage(str(self.movies[self.current]['images']['fanart'].encode( "utf-8", "ignore" )))
+        self.getControl(183).setLabel(self.movies[self.current]['title'].encode( "utf-8", "ignore" )+" ["+str(self.movies[self.current]['year'])+"]\n")
+        info =  "Watchers: "+str(self.movies[self.current]['watchers']).encode( "utf-8", "ignore" )+"\n"
+        info += "Runtime: "+str(self.movies[self.current]['runtime']).encode( "utf-8", "ignore" )+"mins\n"
+        info += "Rating: "+self.movies[self.current]['certification'].encode( "utf-8", "ignore" )
+        self.getControl(184).setLabel(info)
+        self.getControl(185).setEnabled(self.movies[self.current]['idMovie'] != -1) # Disable the play button if movie not found in collection
+    
     def onAction(self, action):
         # Same as normal python Windows.
         print action.getId()
         if action.getId() in (9,10):
             self.close()
+        elif action.getId() in (1,2,107):
+            self.onChange()
         pass
- 
+    
     def onClick(self, controlID):
         """
             Notice: onClick not onControl
             Notice: it gives the ID of the control not the control object
         """
-        
+        if controlID in (181,185):
+            if (self.movies[self.current]['idMovie'] != -1):
+                playMovieById(self.movies[self.current]['idMovie'])
+        elif controlID == 186:
+            xbmcgui.Dialog().ok("Trakt Utilities", "comming soon")
+        else:
+            print "Other control clicked: "+str(controlID)
         pass
  
     def onFocus(self, controlID):
