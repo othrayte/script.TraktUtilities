@@ -335,6 +335,7 @@ def getWatchlistTVShowsFromTrakt():
     
     return data
 
+# @author Adrian Cowan (othrayte)
 def getRecommendedMoviesFromTrakt():
     try:
         jdata = json.dumps({'username': username, 'password': pwd})
@@ -356,7 +357,8 @@ def getRecommendedMoviesFromTrakt():
         pass
     
     return data
-    
+
+# @author Adrian Cowan (othrayte)
 def getRecommendedTVShowsFromTrakt():
     try:
         jdata = json.dumps({'username': username, 'password': pwd})
@@ -400,6 +402,7 @@ def getMovieIdFromXBMC(imdb_id, title):
     
 # Play movie
 def playMovieById(idMovie):
+
     # sqlite till xbmc/jsonrpc supports selecting a single movie
     dbpath = getDBPath()
     if dbpath == None:
@@ -434,6 +437,7 @@ def playMovieById(idMovie):
             xbmc.Player().play(path+filename)
         xbmc.executebuiltin("ActivateWindow(videooverlay)")
 
+# @author Adrian Cowan (othrayte)
 def getTrendingMoviesFromTrakt():
     try:
         conn.request('GET', '/movies/trending.json/' + apikey)
@@ -454,7 +458,8 @@ def getTrendingMoviesFromTrakt():
         pass
     
     return data
-    
+
+# @author Adrian Cowan (othrayte)
 def getTrendingTVShowsFromTrakt():
     try:
         conn.request('GET', '/shows/trending.json/' + apikey)
@@ -476,6 +481,7 @@ def getTrendingTVShowsFromTrakt():
     
     return data
 
+# @author Adrian Cowan (othrayte)
 def getFriendsFromTrakt():
     try:
         jdata = json.dumps({'username': username, 'password': pwd})
@@ -500,7 +506,6 @@ def getFriendsFromTrakt():
     
 """
 ToDo:
-- check xbmc json returns for error
 
 
 """
