@@ -201,6 +201,8 @@ def getTVShowsFromXBMC():
     result = xbmc.executeJSONRPC(rpccmd)
     result = json.loads(result)
     
+    Debug("[~] "+str(result))
+    
     # check for error
     try:
         error = result['error']
