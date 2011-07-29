@@ -30,6 +30,26 @@ def menu():
     if checkSettings() == False:
         return
 
+    # check for argument based requests
+    Debug("[~] "+repr(sys.argv))
+    if sys.argv[1] in ('movie', 'show', 'episode') and sys.argv[2] in ('summary'):
+        media = sys.argv[1]
+        method = sys.argv[2]
+        if media == 'movie':
+            imdbid = sys.argv[3]
+            title = sys.argv[4]
+            year = sys.argv[5]
+            if method == 'summary':
+                movie = getMovieFromTrakt(imdbid, title, year)
+                window = xbmcgui.Window( 10000 )
+                window.setProperty( 'TraktUtilities.Movie.Recent.WatchlistStatus' , str(movie['in_watchlist']))
+                window.setProperty( 'TraktUtilities.Movie.Recent.CollectionStatus' , str(movie['in_collection']))
+                if 'watched' in movie and movie['watched']:
+                    window.setProperty( 'TraktUtilities.Movie.Recent.Seen' , 'true')
+                else:
+                    window.setProperty( 'TraktUtilities.Movie.Recent.Seen' , 'false')
+        return
+    
     options = [__language__(1210).encode( "utf-8", "ignore" ), __language__(1211).encode( "utf-8", "ignore" ), __language__(1212).encode( "utf-8", "ignore" ), __language__(1213).encode( "utf-8", "ignore" ), __language__(1214).encode( "utf-8", "ignore" )]
     
     while True:

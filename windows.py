@@ -167,7 +167,7 @@ class MoviesWindow(xbmcgui.WindowXML):
             actions.append('unwatchlist')
         options.append("Rate")
         actions.append('rate')
-        if 'plays' in movie and movie['plays'] == 0:
+        if ('plays' in movie and movie['plays'] == 0) or self.type == 'watchlist':
             options.append("Mark as seen")
             actions.append('seen')
         elif 'watchlist' in movie and movie['watchlist']:

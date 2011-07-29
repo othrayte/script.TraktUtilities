@@ -185,6 +185,20 @@ def getMoviesFromTrakt(daemon=False):
         Debug("Error in request from 'getMoviesFromTrakt()'")
     return data
 
+# get movie details from trakt
+def getMovieFromTrakt(imdbid, title, year):
+    if imdbid == "" or imdbid == None:
+        title = string.replace(str(title),' ','-')+"-"+str(year)
+    else:
+        title = imdbid
+    
+    data = traktJsonRequest('POST', '/movie/summary.json/%%API_KEY%%/'+str(title))
+    if data == None:
+        Debug("Error in request from 'getMovieFromTrakt()'")
+        return None
+        
+    return data
+
 # get easy access to movie by imdb_id
 def traktMovieListByImdbID(data):
     trakt_movies = {}
