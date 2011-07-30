@@ -186,15 +186,18 @@ def getMoviesFromTrakt(daemon=False):
     return data
 
 # get movie details from trakt
-def getMovieFromTrakt(imdbid, title, year):
+def getMovieFromTrakt(imdbid, title, year, daemon=False):
     if imdbid == "" or imdbid == None:
-        title = str.replace(str(title),'-.:\'','')
-        title = str.replace(str(title),' ','-')
+        if title == "" or title == None or year == "" or year == None:
+            return None
+        title = str(title).translate(None,'-_!.:;,\'\"')
+        Debug(title)
+        title = str(title).replace(' ','-')
         title = title+"-"+str(year)
     else:
         title = imdbid
     
-    data = traktJsonRequest('POST', '/movie/summary.json/%%API_KEY%%/'+str(title))
+    data = traktJsonRequest('POST', '/movie/summary.json/%%API_KEY%%/'+str(title), silent=daemon)
     if data == None:
         Debug("Error in request from 'getMovieFromTrakt()'")
         return None

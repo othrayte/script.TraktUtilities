@@ -25,27 +25,33 @@ Debug("default: " + __settings__.getAddonInfo("id") + " - version: " + __setting
 
 # Usermenu:
 def menu():
-
+    # check for argument based requests
+    if sys.argv[0] == 'script.TraktUtilities':
+        Debug("[~] "+repr(sys.argv))
+        if sys.argv[1] in ('movie', 'show', 'episode') and sys.argv[2] in ('summary'):
+            media = sys.argv[1]
+            method = sys.argv[2]
+            if media == 'movie':
+                imdbid = sys.argv[3]
+                title = sys.argv[4]
+                year = sys.argv[5]
+                if method == 'summary':
+                    window = xbmcgui.Window(10000)
+                    window.clearProperty('TraktUtilities.Movie.Recent.WatchlistStatus')
+                    window.clearProperty('TraktUtilities.Movie.Recent.CollectionStatus')
+                    window.clearProperty('TraktUtilities.Movie.Recent.Seen')
+                    window.clearProperty('TraktUtilities.Movie.Recent.Rating')
+                    movie = getMovieFromTrakt(imdbid, title, year, daemon=True)
+                    if movie is None:
+                        return
+                    if 'in_watchlist' in movie: window.setProperty('TraktUtilities.Movie.Recent.WatchlistStatus', str(movie['in_watchlist']))
+                    if 'in_collection' in movie: window.setProperty('TraktUtilities.Movie.Recent.CollectionStatus', str(movie['in_collection']))
+                    if 'watched' in movie: window.setProperty('TraktUtilities.Movie.Recent.Seen', str(movie['watched']))
+                    if 'rating' in movie: window.setProperty('TraktUtilities.Movie.Recent.Rating', str(movie['rating']))
+            return
+    
     # check if needed settings are set
     if checkSettings() == False:
-        return
-
-    # check for argument based requests
-    Debug("[~] "+repr(sys.argv))
-    if sys.argv[1] in ('movie', 'show', 'episode') and sys.argv[2] in ('summary'):
-        media = sys.argv[1]
-        method = sys.argv[2]
-        if media == 'movie':
-            imdbid = sys.argv[3]
-            title = sys.argv[4]
-            year = sys.argv[5]
-            if method == 'summary':
-                movie = getMovieFromTrakt(imdbid, title, year)
-                window = xbmcgui.Window( 10000 )
-                window.setProperty( 'TraktUtilities.Movie.Recent.WatchlistStatus' , str(movie['in_watchlist']))
-                window.setProperty( 'TraktUtilities.Movie.Recent.CollectionStatus' , str(movie['in_collection']))
-                window.setProperty( 'TraktUtilities.Movie.Recent.Seen' , str(movie['watched']))
-                if 'rating' in movie: window.setProperty( 'TraktUtilities.Movie.Recent.Rating' , str(movie['rating']))
         return
     
     options = [__language__(1210).encode( "utf-8", "ignore" ), __language__(1211).encode( "utf-8", "ignore" ), __language__(1212).encode( "utf-8", "ignore" ), __language__(1213).encode( "utf-8", "ignore" ), __language__(1214).encode( "utf-8", "ignore" )]
