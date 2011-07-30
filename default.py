@@ -44,10 +44,8 @@ def menu():
                 window = xbmcgui.Window( 10000 )
                 window.setProperty( 'TraktUtilities.Movie.Recent.WatchlistStatus' , str(movie['in_watchlist']))
                 window.setProperty( 'TraktUtilities.Movie.Recent.CollectionStatus' , str(movie['in_collection']))
-                if 'watched' in movie and movie['watched']:
-                    window.setProperty( 'TraktUtilities.Movie.Recent.Seen' , 'true')
-                else:
-                    window.setProperty( 'TraktUtilities.Movie.Recent.Seen' , 'false')
+                window.setProperty( 'TraktUtilities.Movie.Recent.Seen' , str(movie['watched']))
+                if 'rating' in movie: window.setProperty( 'TraktUtilities.Movie.Recent.Rating' , str(movie['rating']))
         return
     
     options = [__language__(1210).encode( "utf-8", "ignore" ), __language__(1211).encode( "utf-8", "ignore" ), __language__(1212).encode( "utf-8", "ignore" ), __language__(1213).encode( "utf-8", "ignore" ), __language__(1214).encode( "utf-8", "ignore" )]
