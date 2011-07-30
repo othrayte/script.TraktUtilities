@@ -188,7 +188,7 @@ def getMoviesFromTrakt(daemon=False):
 # get movie details from trakt
 def getMovieFromTrakt(imdbid, title, year):
     if imdbid == "" or imdbid == None:
-        title = string.replace(str(title),' ','-')+"-"+str(year)
+        title = str.replace(str(title),' ','-')+"-"+str(year)
     else:
         title = imdbid
     
