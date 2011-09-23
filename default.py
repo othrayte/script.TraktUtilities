@@ -9,6 +9,7 @@ from watchlist import *
 from recommend import *
 from friends import *
 from trending import *
+from unit_tests import UnitTests
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Justin Nemeth",  "Sean Rudford"]
@@ -32,6 +33,9 @@ def menu():
 
     options = [__language__(1210).encode( "utf-8", "ignore" ), __language__(1211).encode( "utf-8", "ignore" ), __language__(1212).encode( "utf-8", "ignore" ), __language__(1213).encode( "utf-8", "ignore" ), __language__(1214).encode( "utf-8", "ignore" )]
     
+    if __settings__.getSetting("debug"):
+        options.append("Unit Testing [Employees only]")
+    
     while True:
         select = xbmcgui.Dialog().select("Trakt Utilities", options)
         Debug("Select: " + str(select))
@@ -49,6 +53,8 @@ def menu():
                 submenuTrendingMoviesTVShows()
             elif select == 4: # Update / Sync / Clean
                 submenuUpdateSyncClean()
+            elif __settings__.getSetting("debug") and select == 5:
+                submenuUnitTesting()
 
 
 def submenuUpdateSyncClean():
@@ -118,5 +124,19 @@ def submenuRecommendations():
             showRecommendedMovies()
         elif select == 1: # Watchlist TV Shows
             showRecommendedTVShows()
+            
+def submenuUnitTesting():
+    options = ["Run All"]+UnitTests.names()
+    
+    while True:
+        select = xbmcgui.Dialog().select("Unit Tests", options)
+        Debug("Select: " + str(select))
+        if select == -1:
+            Debug ("menu quit by user")
+            return
+        if select == 0: # Run all tests
+            UnitTests.runAll()
+        elif select <= UnitTests.count(): # Run selected test
+            UnitTests.run(select-1)
 
 menu()
