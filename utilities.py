@@ -135,79 +135,86 @@ def traktJsonRequest(method, req, args={}, returnStatus=False, anon=False, conn=
             data['error'] = 'Unable to connect to trakt'
             return data
         return None
-
-    try:
-        req = req.replace("%%API_KEY%%",apikey)
-        req = req.replace("%%USERNAME%%",username)
-        if method == 'POST':
-            if not anon:
-                args['username'] = username
-                args['password'] = pwd
-            if passVersions:
-                args['plugin_version'] = __settings__.getAddonInfo("version")
-                args['media_center'] = 'xbmc'
-                args['media_center_version'] = xbmc.getInfoLabel("system.buildversion")
-                args['media_center_date'] = xbmc.getInfoLabel("system.builddate")
-            jdata = json.dumps(args)
-            conn.request('POST', req, jdata)
-        elif method == 'GET':
-            conn.request('GET', req)
-        else:
-            return None
-        Debug("trakt json url: "+req)
-    except socket.error:
-        Debug("traktQuery: can't connect to trakt")
-        if not silent: notification("Trakt Utilities", __language__(1108).encode( "utf-8", "ignore" )) # can't connect to trakt
-        if returnStatus:
-            data = {}
-            data['status'] = 'failure'
-            data['error'] = 'Socket error, unable to connect to trakt'
-            return data;
-        return None
-     
-    conn.go()
     
-    while True:
-        if conn.hasResult() or xbmc.abortRequested:
-            if xbmc.abortRequested:
-                Debug("Broke loop due to abort")
-                if returnStatus:
-                    data = {}
-                    data['status'] = 'failure'
-                    data['error'] = 'Abort requested, not waiting for responce'
-                    return data;
-                return None
-            if closeConnection:
-                conn.close()
-            break
-        time.sleep(1)
-    
-    response = conn.getResult()
-    if closeConnection:
-        conn.close()
-    
-    try:
-        raw = response.read()
-        data = json.loads(raw)
-    except ValueError:
-        Debug("traktQuery: Bad JSON responce: "+raw)
-        if returnStatus:
-            data = {}
-            data['status'] = 'failure'
-            data['error'] = 'Bad responce from trakt'
-            return data
-        if not silent: notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": Bad responce from trakt") # Error
-        return None
-    
-    if 'status' in data:
-        if data['status'] == 'failure':
-            Debug("traktQuery: Error: " + str(data['error']))
+    attempt = 0
+    while (attempt <= 3 and not xbmc.abortRequested):
+        if attempt > 0:
+            if (data is not None and 'error' in data):
+                Debug("[Util] TraktJsonRequest failed attempt "+attempt+", reason: "+data['error'])
+            else:
+                Debug("[Util] TraktJsonRequest failed attempt "+attempt)
+        attempt += 1
+        try:
+            req = req.replace("%%API_KEY%%",apikey)
+            req = req.replace("%%USERNAME%%",username)
+            if method == 'POST':
+                if not anon:
+                    args['username'] = username
+                    args['password'] = pwd
+                if passVersions:
+                    args['plugin_version'] = __settings__.getAddonInfo("version")
+                    args['media_center'] = 'xbmc'
+                    args['media_center_version'] = xbmc.getInfoLabel("system.buildversion")
+                    args['media_center_date'] = xbmc.getInfoLabel("system.builddate")
+                jdata = json.dumps(args)
+                conn.request('POST', req, jdata)
+            elif method == 'GET':
+                conn.request('GET', req)
+            else:
+                continue # Failed try again
+            Debug("trakt json url: "+req)
+        except socket.error:
+            Debug("traktQuery: can't connect to trakt")
+            if not silent: notification("Trakt Utilities", __language__(1108).encode( "utf-8", "ignore" )) # can't connect to trakt
             if returnStatus:
-                return data;
-            if not silent: notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": " + str(data['error'])) # Error
-            return None
-    
-    return data
+                data = {}
+                data['status'] = 'failure'
+                data['error'] = 'Socket error, unable to connect to trakt'
+            continue
+            
+        conn.go()
+        
+        while True:
+            if conn.hasResult() or xbmc.abortRequested:
+                if xbmc.abortRequested:
+                    Debug("Broke loop due to abort")
+                    if returnStatus:
+                        data = {}
+                        data['status'] = 'failure'
+                        data['error'] = 'Abort requested, not waiting for responce'
+                    continue
+                if closeConnection:
+                    conn.close()
+                break
+            time.sleep(1)
+        
+        response = conn.getResult()
+        if closeConnection:
+            conn.close()
+        
+        try:
+            raw = response.read()
+            data = json.loads(raw)
+        except ValueError:
+            Debug("traktQuery: Bad JSON responce: "+raw)
+            if returnStatus:
+                data = {}
+                data['status'] = 'failure'
+                data['error'] = 'Bad responce from trakt'
+            if not silent: notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": Bad responce from trakt") # Error
+            continue
+        
+        if 'status' in data:
+            if data['status'] == 'failure':
+                Debug("traktQuery: Error: " + str(data['error']))
+                if not silent: notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": " + str(data['error'])) # Error
+                continue
+        return data
+        
+    # All attempts failed, give up, return latest data if requested
+    if returnStatus:
+        return data;
+    return None
    
 # get movies from trakt server
 def getMoviesFromTrakt(daemon=False):
