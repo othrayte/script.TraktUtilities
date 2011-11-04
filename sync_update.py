@@ -387,6 +387,7 @@ def cleanTVShowCollection(daemon=False):
 
     for i in range(0, len(trakt_tvshowlist)):
         trakt_tvshows[trakt_tvshowlist[i]['tvdb_id']] = trakt_tvshowlist[i]
+        Debug("[~] At trakt.tv : "+repr(trakt_tvshowlist[i]))
     
     to_unlibrary = []
     
@@ -400,7 +401,9 @@ def cleanTVShowCollection(daemon=False):
     for i in range(0, xbmc_tvshows['limits']['total']):
         try:
             xbmc_tvshows_tvdbid[xbmc_tvshows['tvshows'][i]['imdbnumber']] = xbmc_tvshows['tvshows'][i]
+            Debug("[~] In xbmc library : "+repr(xbmc_tvshows['tvshows'][i]))
         except KeyError:
+            Debug("[~]  missing data, skip tvshow: "+repr(xbmc_tvshows['tvshows'][i]))
             continue # missing data, skip tvshow
     
     for trakt_tvshow in trakt_tvshows.items():
