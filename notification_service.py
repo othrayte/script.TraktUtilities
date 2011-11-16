@@ -51,6 +51,7 @@ class NotificationService(threading.Thread):
                         inString = False
                     [index, match, raw] = tn.expect(["(\\\\)|(\\\")|[{\"}]"], 0.2) #note, pre-compiled regex might be faster here
                     notification += raw
+                    Debug("[~] raw>"+repr(raw)+"<")
                     if index == -1: # Timeout
                         continue
                     if index == 0: # Found escaped quote
