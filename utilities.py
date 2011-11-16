@@ -88,7 +88,9 @@ def xcp(s):
 # make a httpapi based XBMC db query (get data)
 def xbmcHttpapiQuery(query):
     Debug("[httpapi-sql] query: "+query)
-    
+    FILE = open(xbmc.translatePath("special://profile/addon_data/script.TraktUtilities/test.sql"),'a')
+    FILE.write(query+'\n')
+    FILE.close()
     xml_data = xbmc.executehttpapi( "QueryVideoDatabase(%s)" % urllib.quote_plus(query), )
     match = re.findall( "<field>((?:[^<]|<(?!/))*)</field>", xml_data,)
     
@@ -99,6 +101,9 @@ def xbmcHttpapiQuery(query):
 
 # execute a httpapi based XBMC db query (set data)
 def xbmcHttpapiExec(query):
+    FILE = open(xbmc.translatePath("special://profile/addon_data/script.TraktUtilities/test.sql"),'a')
+    FILE.write(query+'\n')
+    FILE.close()
     xml_data = xbmc.executehttpapi( "ExecVideoDatabase(%s)" % urllib.quote_plus(query), )
     return xml_data
 

@@ -21,6 +21,11 @@ Debug("service: " + __settings__.getAddonInfo("id") + " - version: " + __setting
 
 # starts update/sync
 def autostart():
+    
+    FILE = open(xbmc.translatePath("special://profile/addon_data/script.TraktUtilities/test.sql"),'w')
+    FILE.write("-- Log starts --\n")
+    FILE.close()
+    
     if checkSettings(True):
         notificationThread = NotificationService()
         notificationThread.start()
