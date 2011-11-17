@@ -45,30 +45,32 @@ class NotificationService(threading.Thread):
             bCount = 0
             
             while (not (self.abortRequested or xbmc.abortRequested)):
+                if bCount == 0:
+                    notification = ""
+                    inString = False
+                    
                 try:
-                    if bCount == 0:
-                        notification = ""
-                        inString = False
-                    [index, match, raw] = tn.expect(["(\\\\)|(\\\")|[{\"}]"], 0.2) #note, pre-compiled regex might be faster here
+                    [index, match, raw] = tn.expect(["(\\\\)|(\\\")|[{\"}]"], 0.5) #note, pre-compiled regex might be faster here
                     notification += raw
-                    Debug("[~] raw>"+repr(raw)+"<")
-                    if index == -1: # Timeout
-                        continue
-                    if index == 0: # Found escaped quote
-                        match = match.group(0)
-                        if match == "\"":
-                            inString = not inString
-                            continue
-                        if match == "{":
-                            bCount += 1
-                        if match == "}":
-                            bCount -= 1
-                    if bCount > 0:
-                        continue
-                    if bCount < 0:
-                        bCount = 0
+                    Debug("[~] raw, "+repr(index)+", "+repr(match)+", "+repr(raw))
                 except EOFError:
                     break #go out to the other loop to restart the connection
+                    
+                if index == -1: # Timeout
+                    continue
+                if index == 0: # Found escaped quote
+                    match = match.group(0)
+                    if match == "\"":
+                        inString = not inString
+                        continue
+                    if match == "{":
+                        bCount += 1
+                    if match == "}":
+                        bCount -= 1
+                if bCount > 0:
+                    continue
+                if bCount < 0:
+                    bCount = 0
                 
                 Debug("[Notification Service] message: " + str(notification))
                 
