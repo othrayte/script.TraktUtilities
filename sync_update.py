@@ -888,7 +888,7 @@ def syncSeenTVShows(daemon=False):
                 continue # tvshow not in xbmc library
 
             xbmc_episodes = getEpisodesFromXBMC(xbmc_tvshow, seasonid)
-            if xbmc_episodess is not None and 'limits' in xbmc_episodes and 'total' in xbmc_episodes['limits'] and xbmc_episodes['limits']['total'] > 0:
+            if xbmc_episodes is not None and 'limits' in xbmc_episodes and 'total' in xbmc_episodes['limits'] and xbmc_episodes['limits']['total'] > 0:
                 # sort xbmc episodes by id
                 xbmc_episodes_byid = {}
                 for i in xbmc_episodes['episodes']:
