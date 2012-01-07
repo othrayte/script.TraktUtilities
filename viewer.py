@@ -18,13 +18,6 @@ except ImportError:
     # Python 2.7 and earlier
     import httplib
 
-try:
-  # Python 2.6 +
-  from hashlib import sha as sha
-except ImportError:
-  # Python 2.5 and earlier
-  import sha
-
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
 __license__ = "GPL"
@@ -38,7 +31,7 @@ __language__ = __settings__.getLocalizedString
 
 apikey = '48dfcb4813134da82152984e8c4f329bc8b8b46a'
 username = __settings__.getSetting("username")
-pwd = sha.new(__settings__.getSetting("password")).hexdigest()
+pwd = sha1(__settings__.getSetting("password")).hexdigest()
 debug = __settings__.getSetting( "debug" )
 
 conn = httplib.HTTPConnection('api.trakt.tv')

@@ -17,7 +17,7 @@ __language__ = __settings__.getLocalizedString
 
 apikey = '48dfcb4813134da82152984e8c4f329bc8b8b46a'
 username = __settings__.getSetting("username")
-pwd = sha.new(__settings__.getSetting("password")).hexdigest()
+pwd = sha1(__settings__.getSetting("password")).hexdigest()
 debug = __settings__.getSetting( "debug" )
 
 conn = httplib.HTTPConnection('api.trakt.tv')

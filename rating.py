@@ -19,7 +19,7 @@ __language__ = __settings__.getLocalizedString
 
 apikey = '0a698a20b222d0b8637298f6920bf03a'
 username = __settings__.getSetting("username")
-pwd = sha.new(__settings__.getSetting("password")).hexdigest()
+pwd = sha1(__settings__.getSetting("password")).hexdigest()
 debug = __settings__.getSetting( "debug" )
 
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}

@@ -9,7 +9,7 @@ try: import simplejson as json
 except ImportError: import json
 
 from nbhttpconnection import *
-from utilities import Debug, notification
+from utilities import Debug, notification, sha1
 
 import urllib, re
 
@@ -25,13 +25,6 @@ try:
 except ImportError:
     # Python 2.7 and earlier
     import httplib
-
-try:
-  # Python 2.6 +
-  from hashlib import sha as sha
-except ImportError:
-  # Python 2.5 and earlier
-  import sha
   
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -46,7 +39,7 @@ __language__ = __settings__.getLocalizedString
 
 apikey = '48dfcb4813134da82152984e8c4f329bc8b8b46a'
 username = __settings__.getSetting("username")
-pwd = sha.new(__settings__.getSetting("password")).hexdigest()
+pwd = sha1(__settings__.getSetting("password")).hexdigest()
 debug = __settings__.getSetting( "debug" )
 
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
@@ -103,7 +96,7 @@ class Trakt():
     @staticmethod
     def jsonRequest(method, req, args={}, returnStatus=False, anon=False, conn=False, daemon=False, passVersions=False, **argd):
         if __cached_requests__:
-            uRID = sha.new(repr(method)+repr(req)+repr(args)+repr(returnStatus)+repr(anon)+repr(passVersions)).hexdigest()
+            uRID = sha1(repr(method)+repr(req)+repr(args)+repr(returnStatus)+repr(anon)+repr(passVersions)).hexdigest()
             data = cachedRequest(uRID)
             if data is not None:
                 return data
