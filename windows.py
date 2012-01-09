@@ -4,6 +4,7 @@
 import xbmc,xbmcaddon,xbmcgui
 from utilities import *
 from rating import *
+from async_tools import async
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -86,58 +87,86 @@ class MoviesWindow(xbmcgui.WindowXML):
             Debug("[MoviesWindow] invalid current movie size:"+repr(len(self.movies))+" posision:"+repr(current))
             return
         
-        try:
-            self.getControl(BACKGROUND).setImage(unicode(self.movies[current].fanart))
-        except TypeError:
-            Debug("TypeError for Backround")
-            
-        try:
-            if self.movies[current].title is not None:
-                self.getControl(TITLE).setLabel(unicode(self.movies[current].title))
-            else:
-                self.getControl(TITLE).setLabel("")
-        except TypeError:
-            Debug("TypeError for Title")
-            
-        try:
-            if self.movies[current].overview is not None:
-                self.getControl(OVERVIEW).setText(unicode(self.movies[current].overview))
-            else:
-                self.getControl(OVERVIEW).setText("*")
-        except TypeError:
-            Debug("TypeError for Overview")
-            
-        try:
-            if self.movies[current].year is not None:
-                self.getControl(YEAR).setLabel("Year: " + str(self.movies[current].year))
-            else:
-                self.getControl(YEAR).setLabel("")
-        except TypeError:
-            Debug("TypeError for Year")
-        try:
-            if self.movies[current].year is not None:
-                self.getControl(RUNTIME).setLabel("Runtime: " + str(self.movies[current].runtime) + " Minutes")
-            else:
-                self.getControl(RUNTIME).setLabel("")
-        except TypeError:
-            Debug("TypeError for Runtime")
-            
-        try:
-            if self.movies[current].tagline is not None and self.movies[current].tagline <> "":
-                self.getControl(TAGLINE).setLabel("\""+unicode(self.movies[current].tagline)+"\"")
-            else:
-                self.getControl(TAGLINE).setLabel("")
-        except TypeError:
-            Debug("TypeError for Tagline")
-            
-        try:
-            if self.movies[current].classification is not None:
-                self.getControl(RATING).setLabel("Classification: " + unicode(self.movies[current].classification))
-            else:
-                self.getControl(RATING).setLabel("")
-        except TypeError:
-            Debug("TypeError for Rating")
-            
+        _asyncResponces = []
+        
+        @async
+        def _updateBackground():
+            try:
+                self.getControl(BACKGROUND).setImage(unicode(self.movies[current].fanart))
+            except TypeError:
+                Debug("TypeError for Backround")
+        _asyncResponces.push(_updateBackground())
+        
+        @async
+        def _updateTitle():    
+            try:
+                if self.movies[current].title is not None:
+                    self.getControl(TITLE).setLabel(unicode(self.movies[current].title))
+                else:
+                    self.getControl(TITLE).setLabel("")
+            except TypeError:
+                Debug("TypeError for Title")
+        _asyncResponces.push(_updateTitle())
+        
+        @async
+        def _updateOverview():
+            try:
+                if self.movies[current].overview is not None:
+                    self.getControl(OVERVIEW).setText(unicode(self.movies[current].overview))
+                else:
+                    self.getControl(OVERVIEW).setText("*")
+            except TypeError:
+                Debug("TypeError for Overview")
+        _asyncResponces.push(_updateOverview())
+        
+        @async
+        def _updateYear():
+            try:
+                if self.movies[current].year is not None:
+                    self.getControl(YEAR).setLabel("Year: " + str(self.movies[current].year))
+                else:
+                    self.getControl(YEAR).setLabel("")
+            except TypeError:
+                Debug("TypeError for Year")
+        _asyncResponces.push(_updateYear())
+        
+        @async
+        def _updateBackground():    
+            try:
+                if self.movies[current].year is not None:
+                    self.getControl(RUNTIME).setLabel("Runtime: " + str(self.movies[current].runtime) + " Minutes")
+                else:
+                    self.getControl(RUNTIME).setLabel("")
+            except TypeError:
+                Debug("TypeError for Runtime")
+        _asyncResponces.push(_updateBackground())
+        
+        @async
+        def _updateTagline():
+            try:
+                if self.movies[current].tagline is not None and self.movies[current].tagline <> "":
+                    self.getControl(TAGLINE).setLabel("\""+unicode(self.movies[current].tagline)+"\"")
+                else:
+                    self.getControl(TAGLINE).setLabel("")
+            except TypeError:
+                Debug("TypeError for Tagline")
+        _asyncResponces.push(_updateTagline())
+        
+        @async
+        def _updateClassification():
+            try:
+                if self.movies[current].classification is not None:
+                    self.getControl(RATING).setLabel("Classification: " + unicode(self.movies[current].classification))
+                else:
+                    self.getControl(RATING).setLabel("")
+            except TypeError:
+                Debug("TypeError for Rating")
+        _asyncResponces.push(_updateClassification())
+        
+        # Allow any uncaught exceptions to propergate and discard and returned values
+        for reponce in _asyncResponces:
+            ~reponce
+        
         #if 'watchers' in self.movies[current]:
         #    try:
         #        self.getControl(WATCHERS).setLabel(str(self.movies[current]['watchers']) + " people watching")

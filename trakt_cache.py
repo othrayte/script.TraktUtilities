@@ -8,8 +8,8 @@ from show import Show
 from episode import Episode
 import time
 import shelve
-import trakt_cache
-from safeShelf import SafeShelf
+from trakt import Trakt
+from shove import Shove
 from async_tools import Pool, AsyncCall, async
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
@@ -70,14 +70,18 @@ _location = None
 ##
 
 def init(location=None):
-    trakt_cache._location = xbmc.translatePath(location)
-    if trakt_cache._location is not None:
-        _fill()
-def _fill():
-    SafeShelf.set('movies', shelve.open(trakt_cache._location+".movies"))
-    SafeShelf.set('shows', shelve.open(trakt_cache._location+".shows"))
-    SafeShelf.set('episodes', shelve.open(trakt_cache._location+".episodes"))
-    SafeShelf.set('expire', shelve.open(trakt_cache._location+".ttl"))
+    global _location
+    _location = xbmc.translatePath(location)
+    if _location is not None:
+        Debug(str(_location))
+        global movies
+        movies = Shove("sqlite:///"+_location+".movies.db")
+        global shows
+        shows = Shove("sqlite:///"+_location+".shows.db")
+        global episodes
+        episodes = Shove("sqlite:///"+_location+".episodes.db")
+        global expire
+        expire = Shove("sqlite:///"+_location+".ttl.db")
     
 def _sync(xbmcData = None, traktData = None, cacheData = None):
     Debug("[TraktCache] Syncronising")
@@ -122,12 +126,12 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
     
     # Find and list all changes
     if traktData is not None:
-        xbmcChanges = trakt_cache._syncCompare(traktData, cache = cacheData)
+        xbmcChanges = _syncCompare(traktData, cache = cacheData)
         #for item in xbmcChanges['movies']:
         #    if item['remoteId'] == isolatedId:
         #        Debug("[~] X1"+repr(item))
     if xbmcData is not None:
-        traktChanges = trakt_cache._syncCompare(xbmcData, xbmc = True, cache = cacheData)
+        traktChanges = _syncCompare(xbmcData, xbmc = True, cache = cacheData)
         #for item in traktChanges['movies']:
         #    if item['remoteId'] == isolatedId:
         #        Debug("[~] T1"+repr(item))
@@ -205,15 +209,15 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
                     
     # Perform cache only changes
     Debug("[TraktCache] Updating cache")
-    trakt_cache._updateCache(cacheChanges, traktData)
+    _updateCache(cacheChanges, traktData)
     if traktData is not None:
         # Perform local (ie to xbmc) changes
         Debug("[TraktCache] Updating xbmc")
-        trakt_cache._updateXbmc(xbmcChanges, traktData)
+        _updateXbmc(xbmcChanges, traktData)
     if xbmcData is not None:
         # Log remote (ie to trakt) changes into queue and send to trakt
         Debug("[TraktCache] Updateing trakt")
-        trakt_cache._updateTrakt(traktChanges, traktData)
+        _updateTrakt(traktChanges, traktData)
     # Collate list of updated items
     remoteIds = []
     if traktData is not None:
@@ -225,7 +229,7 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
             for remoteId in xbmcData[type]:
                 remoteIds.append(remoteId)
     ## Update next sync times
-    #trakt_cache.updateSyncTimes(['library'], remoteIds)
+    #updateSyncTimes(['library'], remoteIds)
     
 ##
 # DB updaters
@@ -237,10 +241,9 @@ def _updateCache(changes, traktData = {}):
             Debug("[TraktCache] Cache update: "+repr(change))
             if 'remoteId' in change and 'subject' in change and 'value' in change:
                 if change['subject'] in ('title', 'year', 'runtime', 'released', 'tagline', 'overview', 'classification', 'playcount', 'rating', 'watchlistStatus', 'recommendedStatus', 'libraryStatus', 'traktDbStatus','trailer', 'poster', 'fanart'):
-                    with SafeShelf('movies') as movies:
-                        exists = change['remoteId'] in movies
-                        if exists:
-                            movie = movies[change['remoteId']]
+                    exists = change['remoteId'] in movies
+                    if exists:
+                        movie = movies[change['remoteId']]
                     if exists:
                         movie = movies[change['remoteId']]
                         
@@ -248,8 +251,7 @@ def _updateCache(changes, traktData = {}):
                         movie['_'+change['subject']] = change['value']
                         if 'bestBefore' in change:
                             movie._bestBefore[change['subject']] = change['bestBefore']
-                        with SafeShelf('movies', True) as movies:
-                            movies[change['remoteId']] = movie
+                        movies[change['remoteId']] = movie
                     else:
                         if 'movies' in traktData and change['remoteId'] in traktData['movies']:
                             Debug("[TraktCache] Inserting into cache from local trakt data: "+repr(traktData['movies'][change['remoteId']]))
@@ -266,10 +268,9 @@ def _updateCache(changes, traktData = {}):
             Debug("[TraktCache] Cache update: "+repr(change))
             if 'remoteId' in change and 'subject' in change and 'value' in change:
                 if change['subject'] in ('title', 'year', 'firstAired', 'country', 'overview', 'runtime', 'network', 'airDay', 'airTime', 'classification', 'rating', 'watchlistStatus', 'recommendedStatus', 'libraryStatus', 'traktDbStatus', 'poster', 'fanart', 'episodes'):
-                    with SafeShelf('shows') as shows:
-                        exists = change['remoteId'] in shows
-                        if exists:
-                            show = shows[change['remoteId']]
+                    exists = change['remoteId'] in shows
+                    if exists:
+                        show = shows[change['remoteId']]
                     if exists:
                         show = shows[change['remoteId']]
                         
@@ -277,8 +278,7 @@ def _updateCache(changes, traktData = {}):
                         show['_'+change['subject']] = change['value']
                         if 'bestBefore' in change:
                             show._bestBefore[change['subject']] = change['bestBefore']
-                        with SafeShelf('shows', True) as shows:
-                            shows[change['remoteId']] = show
+                        shows[change['remoteId']] = show
                     else:
                         if 'shows' in traktData and change['remoteId'] in traktData['shows']:
                             Debug("[TraktCache] Inserting into cache from local trakt data: "+repr(traktData['shows'][change['remoteId']]))
@@ -295,10 +295,9 @@ def _updateCache(changes, traktData = {}):
             Debug("[TraktCache] Cache update: "+repr(change))
             if 'remoteId' in change and 'subject' in change and 'value' in change:
                 if change['subject'] in ('title', 'overview', 'firstAired', 'playCount', 'rating', 'watchlistStatus', 'libraryStatus', 'screen'):
-                    with SafeShelf('episodes') as episodes:
-                        exists = change['remoteId'] in episodes
-                        if exists:
-                            episode = episodes[change['remoteId']]
+                    exists = change['remoteId'] in episodes
+                    if exists:
+                        episode = episodes[change['remoteId']]
                     if exists:
                         episode = episodes[change['remoteId']]
                         
@@ -306,8 +305,7 @@ def _updateCache(changes, traktData = {}):
                         episode['_'+change['subject']] = change['value']
                         if 'bestBefore' in change:
                             episode._bestBefore[change['subject']] = change['bestBefore']
-                        with SafeShelf('episodes', True) as episodes:
-                            episodes[change['remoteId']] = episode
+                        episodes[change['remoteId']] = episode
                     else:
                         if 'episodes' in traktData and change['remoteId'] in traktData['episodes']:
                             Debug("[TraktCache] Inserting into cache from local trakt data: "+repr(traktData['episodes'][change['remoteId']]))
@@ -373,23 +371,20 @@ def _updateXbmc(changes, traktData = {}):
 
 def _updateTrakt(newChanges = None, traktData = {}):
     changeQueue = {}
-    with SafeShelf('movies') as movies:
-        if '_queue' in movies:
-            changeQueue['movies'] = movies['_queue']
-        else:
-            changeQueue['movies'] = []
+    if '_queue' in movies:
+        changeQueue['movies'] = movies['_queue']
+    else:
+        changeQueue['movies'] = []
+    
+    if '_queue' in shows:
+        changeQueue['shows'] = shows['_queue']
+    else:
+        changeQueue['shows'] = []
         
-    with SafeShelf('shows') as shows:
-        if '_queue' in shows:
-            changeQueue['shows'] = shows['_queue']
-        else:
-            changeQueue['shows'] = []
-            
-    with SafeShelf('episodes') as episodes:
-        if '_queue' in episodes:
-            changeQueue['episodes'] = episodes['_queue']
-        else:
-            changeQueue['episodes'] = []
+    if '_queue' in episodes:
+        changeQueue['episodes'] = episodes['_queue']
+    else:
+        changeQueue['episodes'] = []
     
     if newChanges is not None:
         if 'movies' in newChanges:
@@ -398,24 +393,21 @@ def _updateTrakt(newChanges = None, traktData = {}):
                 if change not in changeQueue['movies']: # Check that we arn't adding duplicates
                     changeQueue['movies'].append(change)
             
-            with SafeShelf('movies', True) as movies:
-                movies['_queue'] = changeQueue['movies']
+            movies['_queue'] = changeQueue['movies']
         if 'shows' in newChanges:
             # Add and new changes to the queue
             for change in newChanges['shows']:
                 if change not in changeQueue['shows']: # Check that we arn't adding duplicates
                     changeQueue['shows'].append(change)
             
-            with SafeShelf('shows', True) as shows:
-                shows['_queue'] = changeQueue['shows']
+            shows['_queue'] = changeQueue['shows']
         if 'episodes' in newChanges:
             # Add and new changes to the queue
             for change in newChanges['episodes']:
                 if change not in changeQueue['episodes']: # Check that we arn't adding duplicates
                     changeQueue['episodes'].append(change)
             
-            with SafeShelf('episodes', True) as episodes:
-                episodes['_queue'] = changeQueue['episodes']
+            episodes['_queue'] = changeQueue['episodes']
     
     cacheChanges = {}
     
@@ -461,18 +453,16 @@ def _updateTrakt(newChanges = None, traktData = {}):
                     pass
                 else:
                     # invalid
-                    with SafeShelf('movies', True) as movies:
-                        queue = movies['_queue']
-                        queue.remove(change)
-                        movies['_queue'] = queue
+                    queue = movies['_queue']
+                    queue.remove(change)
+                    movies['_queue'] = queue
                     continue
                 # succeeded
                 cacheChanges['movies'].append(change)
             # either succeeded or invalid
-            with SafeShelf('movies', True) as movies:
-                queue = movies['_queue']
-                queue.remove(change)
-                movies['_queue'] = queue
+            queue = movies['_queue']
+            queue.remove(change)
+            movies['_queue'] = queue
     if 'shows' in changeQueue:
         for item in changeQueue['shows']:
             Debug("[~] S> "+str(item['subject'])+"\t "+str(item['remoteId'])+"\t "+str(item['value']))
@@ -496,18 +486,16 @@ def _updateTrakt(newChanges = None, traktData = {}):
                     pass
                 else:
                     # invalid
-                    with SafeShelf('shows', True) as shows:
-                        queue = shows['_queue']
-                        queue.remove(change)
-                        shows['_queue'] = queue
+                    queue = shows['_queue']
+                    queue.remove(change)
+                    shows['_queue'] = queue
                     continue
                 # succeeded
                 cacheChanges['shows'].append(change)
             # either succeeded or invalid
-            with SafeShelf('shows', True) as shows:
-                queue = shows['_queue']
-                queue.remove(change)
-                shows['_queue'] = queue
+            queue = shows['_queue']
+            queue.remove(change)
+            shows['_queue'] = queue
     if 'episodes' in changeQueue:
         for item in changeQueue['episodes']:
             Debug("[~] E> "+str(item['subject'])+"\t "+str(item['remoteId'])+"\t "+str(item['value']))
@@ -548,19 +536,17 @@ def _updateTrakt(newChanges = None, traktData = {}):
                     pass
                 else:
                     # invalid
-                    with SafeShelf('episodes', True) as episodes:
-                        queue = episodes['_queue']
-                        queue.remove(change)
-                        episodes['_queue'] = queue
+                    queue = episodes['_queue']
+                    queue.remove(change)
+                    episodes['_queue'] = queue
                     continue
                 # succeeded
                 cacheChanges['episodes'].append(change)
             # either succeeded or invalid
-            with SafeShelf('episodes', True) as episodes:
-                queue = episodes['_queue']
-                queue.remove(change)
-                episodes['_queue'] = queue
-    trakt_cache._updateCache(cacheChanges, traktData)
+            queue = episodes['_queue']
+            queue.remove(change)
+            episodes['_queue'] = queue
+    _updateCache(cacheChanges, traktData)
 
 ##
 # DB Readers
@@ -713,24 +699,18 @@ def _syncCompare(data, xbmc = False, cache = None):
     changes = {}
     if cache is None:
         # Compare movies
-        with SafeShelf('movies', True) as movies:
-            changes['movies'] = _listChanges(data['movies'], movies, attr['movies']['primary'],  attr['movies']['secondary'], xbmc, writeBack = None)
+        changes['movies'] = _listChanges(data['movies'], movies, attr['movies']['primary'],  attr['movies']['secondary'], xbmc, writeBack = None)
         # Compare TV shows
-        with SafeShelf('shows', True) as shows:
-            changes['shows'] = _listChanges(data['shows'], shows, attr['shows']['primary'],  attr['shows']['secondary'], xbmc, writeBack = None)
+        changes['shows'] = _listChanges(data['shows'], shows, attr['shows']['primary'],  attr['shows']['secondary'], xbmc, writeBack = None)
         # Compare TV episodes
-        with SafeShelf('episodes', True) as episodes:
-            changes['episodes'] = _listChanges(data['episodes'], episodes, attr['episodes']['primary'],  attr['episodes']['secondary'], xbmc, writeBack = None)
+        changes['episodes'] = _listChanges(data['episodes'], episodes, attr['episodes']['primary'],  attr['episodes']['secondary'], xbmc, writeBack = None)
     else:
         # Compare movies
-        with SafeShelf('movies', True) as movies:
-            changes['movies'] = _listChanges(data['movies'], cache['movies'], attr['movies']['primary'],  attr['movies']['secondary'], xbmc, writeBack = movies)
+        changes['movies'] = _listChanges(data['movies'], cache['movies'], attr['movies']['primary'],  attr['movies']['secondary'], xbmc, writeBack = movies)
         # Compare TV shows
-        with SafeShelf('shows', True) as shows:
-            changes['shows'] = _listChanges(data['shows'], cache['shows'], attr['shows']['primary'],  attr['shows']['secondary'], xbmc, writeBack = shows)
+        changes['shows'] = _listChanges(data['shows'], cache['shows'], attr['shows']['primary'],  attr['shows']['secondary'], xbmc, writeBack = shows)
         # Compare TV episodes
-        with SafeShelf('episodes', True) as episodes:
-            changes['episodes'] = _listChanges(data['episodes'], cache['episodes'], attr['episodes']['primary'],  attr['episodes']['secondary'], xbmc, writeBack = episodes)
+        changes['episodes'] = _listChanges(data['episodes'], cache['episodes'], attr['episodes']['primary'],  attr['episodes']['secondary'], xbmc, writeBack = episodes)
     return changes
 
 def _listChanges(newer, older, attributes, weakAttributes, xbmc = False, writeBack = False):
@@ -747,8 +727,7 @@ def _listChanges(newer, older, attributes, weakAttributes, xbmc = False, writeBa
                 if newItem['_'+attribute] is not None: changes.append({'remoteId': remoteId, 'subject': attribute, 'value':newItem['_'+attribute], 'weak': True, 'bestBefore': time.time()+24*60*60})
             for attribute in weakAttributes:
                 if newItem['_'+attribute] is not None: changes.append({'remoteId': remoteId, 'subject': attribute, 'value':newItem['_'+attribute], 'weak': True, 'bestBefore': time.time()+24*60*60})
-        Debug(str(len(changes)))
-    
+        
     for remoteId in older:
         if len(remoteId) == 0: continue
         if not validRemoteId(remoteId): continue
@@ -869,23 +848,20 @@ def getActivityUpdates(force=False):
     userActCount = 0
     checkFriendsActivity = -1
     friendsActCount = 0
-    with SafeShelf('expire') as expire:
-        if 'useractivity' not in expire or expire['useractivity'] is None:
-            expire['useractivity'] = time.time()
-        if expire['useractivity'] < time.time()-syncTimes['useractivity'] or force:
-            checkUserActivity = expire['useractivity']
-        if 'friendsactivity' not in expire or expire['friendsactivity'] is None:
-            expire['friendsactivity'] = time.time()
-        if expire['friendsactivity'] < time.time()-syncTimes['friendsactivity'] or force:
-            checkFriendsActivity = expire['friendsactivity']
+    if 'useractivity' not in expire or expire['useractivity'] is None:
+        expire['useractivity'] = time.time()
+    if expire['useractivity'] < time.time()-syncTimes['useractivity'] or force:
+        checkUserActivity = expire['useractivity']
+    if 'friendsactivity' not in expire or expire['friendsactivity'] is None:
+        expire['friendsactivity'] = time.time()
+    if expire['friendsactivity'] < time.time()-syncTimes['friendsactivity'] or force:
+        checkFriendsActivity = expire['friendsactivity']
     if checkUserActivity <> -1:
         timeStamp, userActCount = refreshFromUserActivity(checkUserActivity)
-        with SafeShelf('expire', True) as expire:
-            expire['useractivity'] = timeStamp
+        expire['useractivity'] = timeStamp
     """if checkFriendsActivity <> -1:
         timeStamp, friendsActCount = refreshFromFriendsActivity(checkFriendsActivity)
-        with SafeShelf('expire', True) as expire:
-            expire['friendsactivity'] = timeStamp"""
+        expire['friendsactivity'] = timeStamp"""
     if userActCount >= 100 or friendsActCount >= 100:
         return False
     return True
@@ -895,15 +871,14 @@ def updateSyncTimes(sets = [], remoteIds = []):
     sets = set(sets)
     sets, _ = setPropergatePositive(sets, _setStucture)
     
-    with SafeShelf('expire', True) as expire:
-        for updatedSet in sets:
-            if updatedSet not in syncTimes:
-                Debug("[TraktCache] Tried to bump update time of unknown update set:" +updatedSet)
-                continue
-            Debug("[TraktCache] Updating timestamp for "+str(updatedSet))
-            expire[updatedSet] = time.time() + syncTimes[updatedSet]
-        for remoteId in remoteIds:
-            expire[remoteId] = time.time() + 10*60 # +10mins
+    for updatedSet in sets:
+        if updatedSet not in syncTimes:
+            Debug("[TraktCache] Tried to bump update time of unknown update set:" +updatedSet)
+            continue
+        Debug("[TraktCache] Updating timestamp for "+str(updatedSet))
+        expire[updatedSet] = time.time() + syncTimes[updatedSet]
+    for remoteId in remoteIds:
+        expire[remoteId] = time.time() + 10*60 # +10mins
 
 def setPropergatePositive(sets, structure):
     more = True
@@ -933,23 +908,19 @@ def needSyncAtLeast(sets = [], movieIds = [], showIds = [], episodeIds = [], for
     sets = set(sets)
     sets = setPropergateNegative(sets, _setStucture)
     for staleSet in sets:
-        with SafeShelf('expire') as expire:
-            stale = staleSet not in expire or expire[staleSet] < time.time() or force
+        stale = staleSet not in expire or expire[staleSet] < time.time() or force
         if stale:
             refreshSet(staleSet)
     for remoteId in movieIds:
-        with SafeShelf('expire') as expire:
-            stale = remoteId not in expire or expire[remoteId] < time.time() or force
+        stale = remoteId not in expire or expire[remoteId] < time.time() or force
         if stale:
             refreshMovie(remoteId)
     for remoteId in showIds:
-        with SafeShelf('expire') as expire:
-            stale = remoteId not in expire or expire[remoteId] < time.time() or force
+        stale = remoteId not in expire or expire[remoteId] < time.time() or force
         if stale:
             refreshShow(remoteId)
     for remoteId in episodeIds:
-        with SafeShelf('expire') as expire:
-            stale = remoteId not in expire or expire[remoteId] < time.time() or force
+        stale = remoteId not in expire or expire[remoteId] < time.time() or force
         if stale:
             refreshEpisode(remoteId)
     return
@@ -971,106 +942,94 @@ def getMovie(remoteId = None, localId = None):
     if remoteId is None and localId is None:
         raise ValueError("Must provide at least one form of id")
     if remoteId is None:
-        remoteId = trakt_cache.getMovieRemoteId(localId)
+        remoteId = getMovieRemoteId(localId)
     if remoteId is None:
         return None
-    with SafeShelf('movies') as movies:
-        if remoteId not in movies:
-            return None
-        return movies[remoteId]
+    if remoteId not in movies:
+        return None
+    return movies[remoteId]
 
 def getShow(remoteId = None, localId = None):
     if remoteId is None and localId is None:
         raise ValueError("Must provide at least one form of id")
     if remoteId is None:
-        remoteId = trakt_cache.getShowRemoteId(localId)
+        remoteId = getShowRemoteId(localId)
     if remoteId is None:
         return None
-    with SafeShelf('shows') as shows:
-        if remoteId not in shows:
-            return None
-        return shows[remoteId]
+    if remoteId not in shows:
+        return None
+    return shows[remoteId]
         
 def getEpisode(remoteId = None, localId = None):
     if remoteId is None and localId is None:
         raise ValueError("Must provide at least one form of id")
     if remoteId is None:
-        remoteId = trakt_cache.getEpisodeRemoteId(localId)
+        remoteId = getEpisodeRemoteId(localId)
     if remoteId is None:
         return None
-    with SafeShelf('episodes') as episodes:
-        if remoteId not in episodes:
-            return None
-        return episodes[remoteId]
+    if remoteId not in episodes:
+        return None
+    return episodes[remoteId]
         
 def getMovieRemoteId(localId):
-    with SafeShelf('movies') as movies:
-        if '_byLocalId' in movies and localId in movies['_byLocalId']:
-            return movies['_byLocalId'][localId]
+    if '_byLocalId' in movies and localId in movies['_byLocalId']:
+        return movies['_byLocalId'][localId]
     return None     
     
 def getShowRemoteId(localId):
-    with SafeShelf('shows') as shows:
-        if '_byLocalId' in shows and localId in shows['_byLocalId']:
-            return shows['_byLocalId'][localId]
+    if '_byLocalId' in shows and localId in shows['_byLocalId']:
+        return shows['_byLocalId'][localId]
     return None
             
 def getEpisodeRemoteId(localId):
-    with SafeShelf('episodes') as episodes:
-        if '_byLocalId' in episodes and localId in episodes['_byLocalId']:
-            return episodes['_byLocalId'][localId]
+    if '_byLocalId' in episodes and localId in episodes['_byLocalId']:
+        return episodes['_byLocalId'][localId]
     return None
 
 def getMovieLocalIds(remoteId):
     hits = []
-    with SafeShelf('movies') as movies:
-        for localId in movies['_byLocalId']:
-            if remoteId == movies['_byLocalId'][localId]:
-                hits.append(localId)
+    for localId in movies['_byLocalId']:
+        if remoteId == movies['_byLocalId'][localId]:
+            hits.append(localId)
     return hits
     
 def getShowLocalIds(remoteId):
     hits = []
-    with SafeShelf('shows') as shows:
-        for localId in shows['_byLocalId']:
-            if remoteId == shows['_byLocalId'][localId]:
-                hits.append(localId)
+    for localId in shows['_byLocalId']:
+        if remoteId == shows['_byLocalId'][localId]:
+            hits.append(localId)
     return hits
     
 def getEpisodeLocalIds(remoteId):
     hits = []
-    with SafeShelf('episodes') as episodes:
-        for localId in episodes['_byLocalId']:
-            if remoteId == episodes['_byLocalId'][localId]:
-                hits.append(localId)
+    for localId in episodes['_byLocalId']:
+        if remoteId == episodes['_byLocalId'][localId]:
+            hits.append(localId)
     return hits
 
 def relateMovieId(localId, remoteId):
-    with SafeShelf('movies', True) as movies:
-        if '_byLocalId' in movies:
-            index = movies['_byLocalId']
-        else:
-            index = {}
-        index[localId] = remoteId
-        movies['_byLocalId'] = index
+    if '_byLocalId' in movies:
+        index = movies['_byLocalId']
+    else:
+        index = {}
+    index[localId] = remoteId
+    movies['_byLocalId'] = index
         
 def relateShowId(localId, remoteId):
-    with SafeShelf('shows', True) as shows:
-        if '_byLocalId' in shows:
-            index = shows['_byLocalId']
-        else:
-            index = {}
-        index[localId] = remoteId
-        shows['_byLocalId'] = index
+    if '_byLocalId' in shows:
+        index = shows['_byLocalId']
+    else:
+        index = {}
+    index[localId] = remoteId
+    shows['_byLocalId'] = index
         
 def relateEpisodeId(localId, remoteId):
-    with SafeShelf('episodes', True) as episodes:
-        if '_byLocalId' in episodes:
-            index = episodes['_byLocalId']
-        else:
-            index = {}
-        index[localId] = remoteId
-        episodes['_byLocalId'] = index
+    if '_byLocalId' in episodes:
+        index = episodes['_byLocalId']
+    else:
+        index = {}
+    index[localId] = remoteId
+    episodes['_byLocalId'] = index
       
 def refreshMovie(remoteId, property = None):
     localIds = getMovieLocalIds(remoteId)
@@ -1098,27 +1057,22 @@ def refreshMovie(remoteId, property = None):
             return
     else:
         traktData = {'movies': {remoteId: Movie.download(remoteId)}}
-    with SafeShelf('movies') as movies:
-        if remoteId in movies:
-            cacheData = {'movies': {remoteId: movies[remoteId]}}
+    if remoteId in movies:
+        cacheData = {'movies': {remoteId: movies[remoteId]}}
             
     _sync(xbmcData, traktData, cacheData)
     
-    with SafeShelf('expire', True) as expire:
-        expire[remoteId] = time.time() + 10*60 # +10mins
+    expire[remoteId] = time.time() + 10*60 # +10mins
 
 
 def saveMovie(movie):
-    with SafeShelf('movies', True) as movies:
-        movies[movie._remoteId] = movie
+    movies[movie._remoteId] = movie
         
 def saveShow(show):
-    with SafeShelf('shows', True) as shows:
-        shows[show._remoteId] = show
+    shows[show._remoteId] = show
         
 def saveEpisode(episode):
-    with SafeShelf('episodes', True) as episodes:
-        episodes[episode._remoteId] = episode
+    episodes[episode._remoteId] = episode
 
 def newLocalMovie(localId):
     movie = Movie.fromXbmc(getMovieDetailsFromXbmc(localId,['title', 'year', 'originaltitle', 'imdbnumber', 'playcount', 'lastplayed', 'runtime']))
@@ -1195,7 +1149,7 @@ def refreshFromUserActivity(lastTimestamp):
             if event['action'] == 'shout':
                 continue #ignore
     
-    trakt_cache._updateXbmc(changes) 
+    _updateXbmc(changes) 
     return responce['timestamps']['current'], len(responce['activity'])
     
 def refreshFromFriendsActivity(lastTimestamp):
@@ -1245,13 +1199,12 @@ def refreshFromFriendsActivity(lastTimestamp):
 def getMovieLibrary():
     needSyncAtLeast(['movielibrary'])
     items = []
-    with SafeShelf('movies') as movies:
-        for remoteId in movies:
-            if not validRemoteId(remoteId): continue
-            movie = movies[remoteId]
-            if movie is None:
-                continue
-            items.append(movie)
+    for remoteId in movies:
+        if not validRemoteId(remoteId): continue
+        movie = movies[remoteId]
+        if movie is None:
+            continue
+        items.append(movie)
     return items
 def getShows():
     raise NotImplementedError()
@@ -1260,38 +1213,35 @@ def getShowEpisodes():
 def getMovieWatchlist():
     needSyncAtLeast(['moviewatchlist'])
     watchlist = []
-    with SafeShelf('movies') as movies:
-        for remoteId in movies:
-            if not validRemoteId(remoteId): continue
-            movie = movies[remoteId]
-            if movie is None:
-                continue
-            if movie['_watchlistStatus'] == True:
-                watchlist.append(movie)
+    for remoteId in movies:
+        if not validRemoteId(remoteId): continue
+        movie = movies[remoteId]
+        if movie is None:
+            continue
+        if movie['_watchlistStatus'] == True:
+            watchlist.append(movie)
     return watchlist    
 def getShowWatchlist():
     needSyncAtLeast(['showwatchlist'])
     watchlist = []
-    with SafeShelf('shows') as shows:
-        for remoteId in shows:
-            if not validRemoteId(remoteId): continue
-            show = shows[remoteId]
-            if show is None:
-                continue
-            if show['_watchlistStatus'] == True:
-                watchlist.append(show)
+    for remoteId in shows:
+        if not validRemoteId(remoteId): continue
+        show = shows[remoteId]
+        if show is None:
+            continue
+        if show['_watchlistStatus'] == True:
+            watchlist.append(show)
     return watchlist  
 def getRecommendedMovies():
     needSyncAtLeast(['movierecommended'])
     items = []
-    with SafeShelf('movies') as movies:
-        for remoteId in movies:
-            if not validRemoteId(remoteId): continue
-            movie = movies[remoteId]
-            if movie is None:
-                continue
-            if movie['_recommendedStatus'] == True:
-                items.append(movie)
+    for remoteId in movies:
+        if not validRemoteId(remoteId): continue
+        movie = movies[remoteId]
+        if movie is None:
+            continue
+        if movie['_recommendedStatus'] == True:
+            items.append(movie)
     return items
 def getTrendingMovies():
     traktItems = Trakt.moviesTrending();
@@ -1326,12 +1276,12 @@ def refreshSet(set, _structure=None):
 def refreshLibrary():
     Debug("[TraktCache] Refreshing library")
     # Send changes to trakt
-    trakt_cache._updateTrakt()
+    _updateTrakt()
     
     # Receive latest according to trakt
-    traktData = trakt_cache._copyTrakt()
+    traktData = _copyTrakt()
     # Get latest xbmc
-    xbmcData = trakt_cache._copyXbmc()
+    xbmcData = _copyXbmc()
     
     _sync(xbmcData, traktData)  
     updateSyncTimes(['library'])
@@ -1347,15 +1297,14 @@ def refreshMovieWatchlist():
         watchlist[localMovie._remoteId] = localMovie
     traktData['movies'] = watchlist
     _sync(traktData = traktData)
-    with SafeShelf('movies', True) as movies:
-        for remoteId in movies:
-            if not validRemoteId(remoteId): continue
-            movie = movies[remoteId]
-            if movie is None:
-                continue
-            if movie['_watchlistStatus'] <> (remoteId in watchlist):
-                movie['_watchlistStatus'] = not movie['_watchlistStatus']
-                movies[movie._remoteId] = movie
+    for remoteId in movies:
+        if not validRemoteId(remoteId): continue
+        movie = movies[remoteId]
+        if movie is None:
+            continue
+        if movie['_watchlistStatus'] <> (remoteId in watchlist):
+            movie['_watchlistStatus'] = not movie['_watchlistStatus']
+            movies[movie._remoteId] = movie
     updateSyncTimes(['moviewatchlist'], watchlist.keys())
     
 def refreshShowWatchlist():
@@ -1369,15 +1318,14 @@ def refreshShowWatchlist():
         watchlist[localShow._remoteId] = localShow
     traktData['shows'] = watchlist
     _sync(traktData = traktData)
-    with SafeShelf('shows', True) as shows:
-        for remoteId in shows:
-            if not validRemoteId(remoteId): continue
-            show = shows[remoteId]
-            if show is None:
-                continue
-            if show['_watchlistStatus'] <> (remoteId in watchlist):
-                show['_watchlistStatus'] = not show['_watchlistStatus']
-                shows[show._remoteId] = show
+    for remoteId in shows:
+        if not validRemoteId(remoteId): continue
+        show = shows[remoteId]
+        if show is None:
+            continue
+        if show['_watchlistStatus'] <> (remoteId in watchlist):
+            show['_watchlistStatus'] = not show['_watchlistStatus']
+            shows[show._remoteId] = show
     updateSyncTimes(['showwatchlist'], watchlist.keys())
         
 def refreshEpisodeWatchlist():
@@ -1391,15 +1339,14 @@ def refreshEpisodeWatchlist():
         watchlist[localEpisode._remoteId] = localEpisode
     traktData['episodes'] = watchlist
     _sync(traktData = traktData)
-    with SafeShelf('episodes', True) as episodes:
-        for remoteId in episodes:
-            if not validRemoteId(remoteId): continue
-            episode = episodes[remoteId]
-            if episode is None:
-                continue
-            if episode['_watchlistStatus'] <> (remoteId in watchlist):
-                episode['_watchlistStatus'] = not episode['_watchlistStatus']
-                episodes[episode._remoteId] = episode
+    for remoteId in episodes:
+        if not validRemoteId(remoteId): continue
+        episode = episodes[remoteId]
+        if episode is None:
+            continue
+        if episode['_watchlistStatus'] <> (remoteId in watchlist):
+            episode['_watchlistStatus'] = not episode['_watchlistStatus']
+            episodes[episode._remoteId] = episode
     updateSyncTimes(['episodewatchlist'], watchlist.keys())
     
 def refreshRecommendedMovies():
@@ -1413,19 +1360,18 @@ def refreshRecommendedMovies():
         items[localMovie._remoteId] = localMovie
     traktData['movies'] = items
     _sync(traktData = traktData)
-    with SafeShelf('movies', True) as movies:
-        for remoteId in movies:
-            if not validRemoteId(remoteId): continue
-            movie = movies[remoteId]
-            if movie is None:
-                continue
-            status = remoteId in items;
-            if movie['_recommendedStatus'] <> True and status:
-                movie['_recommendedStatus'] = True
-                movies[movie._remoteId] = movie
-            elif movie['_recommendedStatus'] <> False and not status:
-                movie['_recommendedStatus'] = False
-                movies[movie._remoteId] = movie
+    for remoteId in movies:
+        if not validRemoteId(remoteId): continue
+        movie = movies[remoteId]
+        if movie is None:
+            continue
+        status = remoteId in items;
+        if movie['_recommendedStatus'] <> True and status:
+            movie['_recommendedStatus'] = True
+            movies[movie._remoteId] = movie
+        elif movie['_recommendedStatus'] <> False and not status:
+            movie['_recommendedStatus'] = False
+            movies[movie._remoteId] = movie
             
     updateSyncTimes(['movierecommended'], items.keys())
     
@@ -1440,19 +1386,18 @@ def refreshRecommendedShows():
         items[localShow._remoteId] = localShow
     traktData['shows'] = items
     _sync(traktData = traktData)
-    with SafeShelf('shows', True) as shows:
-        for remoteId in shows:
-            if not validRemoteId(remoteId): continue
-            show = shows[remoteId]
-            if show is None:
-                continue
-            status = remoteId in items;
-            if show['_recommendedStatus'] <> True and status:
-                show['_recommendedStatus'] = True
-                shows[show._remoteId] = show
-            elif show['_recommendedStatus'] <> False and not status:
-                show['_recommendedStatus'] = False
-                shows[show._remoteId] = show
+    for remoteId in shows:
+        if not validRemoteId(remoteId): continue
+        show = shows[remoteId]
+        if show is None:
+            continue
+        status = remoteId in items;
+        if show['_recommendedStatus'] <> True and status:
+            show['_recommendedStatus'] = True
+            shows[show._remoteId] = show
+        elif show['_recommendedStatus'] <> False and not status:
+            show['_recommendedStatus'] = False
+            shows[show._remoteId] = show
             
     updateSyncTimes(['showrecommended'], items.keys())
     

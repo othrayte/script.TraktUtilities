@@ -13,11 +13,6 @@ from utilities import Debug, notification, sha1
 
 import urllib, re
 
-try:
-    from safeShelf import SafeShelf
-    __cached_requests__ = True
-except ImportError:
-    __cached_requests__ = False
 
 try:
     # Python 3.0 +
@@ -49,24 +44,28 @@ headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/
 # Request caching
 ##
 
+try:
+    from trakt_cache import expire
+    __cached_requests__ = True
+except ImportError:
+    __cached_requests__ = False
+
 if __cached_requests__:
     def cacheRequest(uRID, data):
         #Debug("Storing request in cache, "+str(uRID))
-        with SafeShelf('expire', True) as expire:
-            expire[uRID] = {'expire': time.time()+10*60, 'data': data}
+        trakt_cache.expire[uRID] = {'expire': time.time()+10*60, 'data': data}
         
     def cachedRequest(uRID):
-        with SafeShelf('expire') as expire:
-            if uRID in expire:
-                #Debug("Looking for, "+str(uRID))
-                entry = expire[uRID]
-                if entry['expire'] >= time.time():
-                    #Debug("Getting request from cache, "+str(uRID))
-                    return entry['data']
-                #else:
-                    #Debug("Cached request expired, "+str(uRID))
+        if uRID in trakt_cache.expire:
+            #Debug("Looking for, "+str(uRID))
+            entry = expire[uRID]
+            if entry['expire'] >= time.time():
+                #Debug("Getting request from cache, "+str(uRID))
+                return entry['data']
             #else:
-                #Debug("Rrequest not found in cache, "+str(uRID))
+                #Debug("Cached request expired, "+str(uRID))
+        #else:
+            #Debug("Rrequest not found in cache, "+str(uRID))
         return None
 
 class Trakt():
