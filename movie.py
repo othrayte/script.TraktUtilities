@@ -51,7 +51,7 @@ class Movie(object):
         self._static = static
         
     def __repr__(self):
-        return "<"+repr(self._title)+" ("+str(self._year)+") - "+str(self._remoteId)+","+str(self._libraryStatus)+","+str(self._poster)+","+str(self._runtime)+","+str(self._tagline)+">"
+        return "<"+repr(self._title)+" ("+str(self._year)+") - "+str(self._remoteId)+","+str(self._libraryStatus)+","+str(self._poster)+","+str(self._runtime)+","+repr(self._tagline)+">"
         
     def __str__(self):
         return unicode(self._title)+" ("+str(self._year)+")"

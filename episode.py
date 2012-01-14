@@ -47,10 +47,10 @@ class Episode(object):
             
         
     def __repr__(self):
-        return "<"+repr(self._title)+" - "+str(self._remoteId)+","+str(self._libraryStatus)+","+str(self._screen)+","+str(self._overview)+">"
+        return "<"+str(self._remoteId)+" - "+str(self._season)+'x'+str(episode)+" "+repr(self._title)+","+str(self._libraryStatus)+","+str(self._screen)+","+repr(self._overview)+">"
         
     def __str__(self):
-        return unicode(self._title)
+        return str(self._remoteId)+" - "+str(self._season)+'x'+str(episode)+" "+unicode(self._title)
     
     def __getitem__(self, index):
         if index == "_title": return self._title
