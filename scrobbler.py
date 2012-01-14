@@ -6,6 +6,7 @@ import xbmc,xbmcaddon,xbmcgui
 import threading
 from utilities import *
 from rating import *
+from async_tools import *
 
 import trakt_cache
 from movie import Movie
@@ -40,21 +41,26 @@ class Scrobbler(threading.Thread):
     def run(self):
         # When requested ping trakt to say that the user is still watching the item
         count = 0
-        while (not (self.abortRequested or xbmc.abortRequested)):
-            time.sleep(5) # 1min wait
-            #Debug("[Scrobbler] Cycling " + str(self.pinging))
-            if self.pinging:
-                count += 1
-                if count>=100:
-                    Debug("[Scrobbler] Pinging watching "+str(self.curVideo))
-                    tmp = time.time()
-                    self.watchedTime += tmp - self.startTime
-                    self.startTime = tmp
-                    self.startedWatching()
+        try:
+            while (not (self.abortRequested or xbmc.abortRequested)):
+                time.sleep(.5) # 1min wait
+                safeExitPoint()
+                #Debug("[Scrobbler] Cycling " + str(self.pinging))
+                if self.pinging:
+                    count += 1
+                    if count>=1000:
+                        Debug("[Scrobbler] Pinging watching "+str(self.curVideo))
+                        tmp = time.time()
+                        self.watchedTime += tmp - self.startTime
+                        self.startTime = tmp
+                        self.startedWatching()
+                        count = 0
+                else:
                     count = 0
-            else:
-                count = 0
-    
+        except AsyncCloseRequest:
+            pass
+        Debug("[Scrobbler] Closing");
+
     def playbackStarted(self, data):
         self.curVideo = data['item']
         if self.curVideo <> None:

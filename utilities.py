@@ -9,6 +9,7 @@ try: import simplejson as json
 except ImportError: import json
 
 from nbhttpconnection import *
+from async_tools import *
 
 import urllib, re
 
@@ -58,6 +59,10 @@ def Debug(msg, force=False):
 
 def notification( header, message, time=5000, icon=__settings__.getAddonInfo( "icon" ) ):
     xbmc.executebuiltin( "XBMC.Notification(%s,%s,%i,%s)" % ( header, message, time, icon ) )
+
+global tuThreads    
+tuThreads = Pool(10)
+Pool.setGlobalPool(tuThreads)
 
 from trakt import Trakt
 

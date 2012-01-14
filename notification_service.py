@@ -12,6 +12,7 @@ from utilities import *
 from rating import *
 from scrobbler import Scrobbler
 from viewer import Viewer
+from async_tools import *
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -32,52 +33,62 @@ class NotificationService(threading.Thread):
         self.scrobbler.start()
         
         tn = None
-        while (not (self.abortRequested or xbmc.abortRequested)):
-            try:
-                tn = telnetlib.Telnet('localhost', 9090, 10)
-            except IOError as (errno, strerror):
-                #connection failed, try again soon
-                Debug("[Notification Service] Telnet too soon? ("+str(errno)+") "+strerror)
-                time.sleep(1)
-                continue
-            
-            Debug("[Notification Service] Waiting~");
-            bCount = 0
-            
+        try:
             while (not (self.abortRequested or xbmc.abortRequested)):
                 try:
-                    if bCount == 0:
-                        notification = ""
-                        inString = False
-                    [index, match, raw] = tn.expect(["(\\\\)|(\\\")|[{\"}]"], 0.2) #note, pre-compiled regex might be faster here
-                    notification += raw
-                    if index == -1: # Timeout
-                        continue
-                    if index == 0: # Found escaped quote
-                        match = match.group(0)
-                        if match == "\"":
-                            inString = not inString
+                    tn = telnetlib.Telnet('localhost', 9090, 10)
+                except IOError as (errno, strerror):
+                    #connection failed, try again soon
+                    Debug("[Notification Service] Telnet too soon? ("+str(errno)+") "+strerror)
+                    Debug("[Notification Service] !! Ensure you have 'Allow programs on this system to control XBMC' enabled, this setting can be found in xbmc under 'System' > 'Network' > 'Services' > 'Allow programs on this system to control XBMC'")
+                    time.sleep(1)
+                    continue
+                
+                Debug("[Notification Service] Ready and waiting");
+                bCount = 0
+                
+                while (not (self.abortRequested or xbmc.abortRequested)):
+                    try:
+                        if bCount == 0:
+                            notification = ""
+                            inString = False
+                        [index, match, raw] = tn.expect(["(\\\\)|(\\\")|[{\"}]"], 0.2) #note, pre-compiled regex might be faster here
+                        notification += raw
+                        if index == -1: # Timeout
+                            safeExitPoint()
                             continue
-                        if match == "{":
-                            bCount += 1
-                        if match == "}":
-                            bCount -= 1
-                    if bCount > 0:
-                        continue
-                    if bCount < 0:
-                        bCount = 0
-                except EOFError:
-                    break #go out to the other loop to restart the connection
-                
-                # Deal with the notifiaction in a sub thread so that we can handle requests more efficiently
-                threading.Thread(target=NotificationService._handleNotification, args=(self, notification,)).start()
-                
-                # Trigger update checks for the cache
-                #trakt_cache.trigger()
-            time.sleep(1)
-        if tn is not None: tn.close()
-        self.scrobbler.abortRequested = True
+                        if index == 0: # Found escaped quote
+                            match = match.group(0)
+                            if match == "\"":
+                                inString = not inString
+                                continue
+                            if match == "{":
+                                bCount += 1
+                            if match == "}":
+                                bCount -= 1
+                        if bCount > 0:
+                            continue
+                        if bCount < 0:
+                            bCount = 0
+                    except EOFError:
+                        break #go out to the other loop to restart the connection
+                    
+                    # Deal with the notifiaction in a sub thread so that we can handle requests more efficiently
+                    NotificationService._handleNotification(self, notification).ignore()
+                    
+                    safeExitPoint()
+                    # Trigger update checks for the cache
+                    #trakt_cache.trigger()
+                time.sleep(1)
+        except AsyncCloseRequest:
+            tn.close()
+        else:
+            if tn is not None: tn.close()
+        Debug("[Notification Service] Waiting for Scrobbler to finish");
+        self.scrobbler.join()
+        Debug("[Notification Service] Closing");
     
+    @async
     def _handleNotification(self, notification):            
         Debug("[Notification Service] message: " + str(notification))
         
@@ -132,4 +143,6 @@ class NotificationService(threading.Thread):
                     setName = data['params']['data']['set']
                     trakt_cache.refreshSet(setName)
             elif data['method'] == 'Other.TraktUtilities.Stop':
-                pass
+                tuThreads.finishUp()
+            else:
+                Debug("[Notification Service] Bad request from TU")

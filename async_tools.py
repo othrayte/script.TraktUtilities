@@ -20,13 +20,15 @@ class AsyncCloseRequest(Exception):
     
 
 _Pool__pools = []
+_Pool__globalPool = None
 
 # Allows a series of functions to be called async
-class Pool():    
-    
+class Pool():
+
     def __init__(self, numThreads):
         _Pool__pools.append(self)
         self.slots = numThreads
+        self.currentThreads = []
         self.slotCount = 0
         self.queueCount = 0
         self.event = threading.Condition()
@@ -46,7 +48,9 @@ class Pool():
         
     def join(self):
         self.event.acquire()
-        while not self.slotCount < self.slots or self.queueCount <> 0:
+        if self.closing:
+            raise AsyncCloseRequest('')
+        while self.slotCount > 0 or self.queueCount > 0:
             if self.closing:
                 raise AsyncCloseRequest('')
             self.event.wait()
@@ -58,36 +62,74 @@ class Pool():
         self.event.notify()
         self.event.release()
         
-    def useSlot(self):
+    def safeExitPoint(self):
+        self.event.acquire()
+        if self.closing:
+            raise AsyncCloseRequest('')
+        self.event.release()
+
+        
+    def useSlot(self, thread):
         self.event.acquire()
         self.queueCount +=1
+        if self.closing:
+            raise AsyncCloseRequest('')
         while self.slotCount >= self.slots:
             self.event.wait()
+            if self.closing:
+                raise AsyncCloseRequest('')
         self.slotCount += 1
         self.queueCount -= 1
+        self.currentThreads.append(thread)
         self.event.notify()
         self.event.release()
         
-    def freeSlot(self):
+    def freeSlot(self, thread):
         self.event.acquire()
         self.slotCount -= 1
+        self.currentThreads.remove(thread)
         self.event.notify()
         self.event.release()
-    
+
+    @staticmethod
+    def setGlobalPool(pool):
+        global _Pool__globalPool
+        _Pool__globalPool = pool
+
+    @staticmethod
+    def getGlobalPool():
+        global _Pool__globalPool
+        if _Pool__globalPool is None:
+            _Pool__globalPool = Pool(10)
+        return _Pool__globalPool
+
+def safeExitPoint():
+    pool = Pool.getGlobalPool()
+    pool.event.acquire()
+    closing = pool.closing
+    pool.event.release()
+    if closing:
+        raise AsyncCloseRequest('')
+
 class AsyncCall():
     
-    def __init__(self, func, pool, *args, **kwargs):
+    def __init__(self, func, pool='default', *args, **kwargs):
         self.func = func
-        self.pool = pool
+        if pool is not None and pool == 'default':
+            self.pool = Pool.getGlobalPool()
+        else:
+            self.pool = pool
         self.args = args
         self.kwargs = kwargs
         self.result = None
         self.e = None
+        self._ignore = False
         self.returned = False
         self.closing = False
         self.event = threading.Condition()
-        if self.pool is not None: pool.useSlot()
-        threading.Thread(target=self.__runner).start()
+        self.thread = threading.Thread(target=self.__runner)
+        if self.pool is not None: self.pool.useSlot(self.thread)
+        self.thread.start()
     def __invert__(self):
         return self.need()
         
@@ -101,6 +143,9 @@ class AsyncCall():
             self.e = sys.exc_info()
             self.event.notify()
             self.event.release()
+            if self._ignore:
+                print self.e
+                raise
         else:
             self.event.acquire()
             self.returned = True
@@ -108,7 +153,7 @@ class AsyncCall():
             self.event.notify()
             self.event.release()
         finally:    
-            if self.pool is not None: pool.freeSlot()
+            if self.pool is not None: self.pool.freeSlot(self.thread)
         
     def need(self):
         self.event.acquire()
@@ -120,6 +165,13 @@ class AsyncCall():
         if self.e is not None:
             raise self.e[1], None, self.e[2]
         return self.result
+    
+    def ignore(self):
+        self.event.acquire()
+        self._ignore = True
+        self.event.release()
+        if self.e is not None:
+            raise self.e[1], None, self.e[2]
 
 def async(func):
     def wrapper(*args, **kwargs):
