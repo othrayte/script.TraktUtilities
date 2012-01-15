@@ -71,7 +71,7 @@ def switchBoard():
         if actionName == 'stop':
             stopTraktUtilities()
         elif actionName == 'start':
-            xbmc.executescript('service.py')
+            xbmc.executescript(__settings__.getAddonInfo("path")+'\\service.py')
         else:
             menu()
         return

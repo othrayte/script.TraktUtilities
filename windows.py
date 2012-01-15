@@ -95,7 +95,7 @@ class MoviesWindow(xbmcgui.WindowXML):
                 self.getControl(BACKGROUND).setImage(unicode(self.movies[current].fanart))
             except TypeError:
                 Debug("TypeError for Backround")
-        _asyncResponces.push(_updateBackground())
+        _asyncResponces.append(_updateBackground())
         
         @async
         def _updateTitle():    
@@ -106,7 +106,7 @@ class MoviesWindow(xbmcgui.WindowXML):
                     self.getControl(TITLE).setLabel("")
             except TypeError:
                 Debug("TypeError for Title")
-        _asyncResponces.push(_updateTitle())
+        _asyncResponces.append(_updateTitle())
         
         @async
         def _updateOverview():
@@ -117,7 +117,7 @@ class MoviesWindow(xbmcgui.WindowXML):
                     self.getControl(OVERVIEW).setText("*")
             except TypeError:
                 Debug("TypeError for Overview")
-        _asyncResponces.push(_updateOverview())
+        _asyncResponces.append(_updateOverview())
         
         @async
         def _updateYear():
@@ -128,7 +128,7 @@ class MoviesWindow(xbmcgui.WindowXML):
                     self.getControl(YEAR).setLabel("")
             except TypeError:
                 Debug("TypeError for Year")
-        _asyncResponces.push(_updateYear())
+        _asyncResponces.append(_updateYear())
         
         @async
         def _updateBackground():    
@@ -139,7 +139,7 @@ class MoviesWindow(xbmcgui.WindowXML):
                     self.getControl(RUNTIME).setLabel("")
             except TypeError:
                 Debug("TypeError for Runtime")
-        _asyncResponces.push(_updateBackground())
+        _asyncResponces.append(_updateBackground())
         
         @async
         def _updateTagline():
@@ -150,7 +150,7 @@ class MoviesWindow(xbmcgui.WindowXML):
                     self.getControl(TAGLINE).setLabel("")
             except TypeError:
                 Debug("TypeError for Tagline")
-        _asyncResponces.push(_updateTagline())
+        _asyncResponces.append(_updateTagline())
         
         @async
         def _updateClassification():
@@ -161,7 +161,7 @@ class MoviesWindow(xbmcgui.WindowXML):
                     self.getControl(RATING).setLabel("")
             except TypeError:
                 Debug("TypeError for Rating")
-        _asyncResponces.push(_updateClassification())
+        _asyncResponces.append(_updateClassification())
         
         # Allow any uncaught exceptions to propergate and discard and returned values
         for reponce in _asyncResponces:
