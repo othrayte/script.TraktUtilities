@@ -699,11 +699,11 @@ def _syncCompare(data, xbmc = False, cache = None):
     changes = {}
     if cache is None:
         # Compare movies
-        changes['movies'] = _listChanges(data['movies'], movies, attr['movies']['primary'],  attr['movies']['secondary'], xbmc, writeBack = None)
+        changes['movies'] = _listChanges(data['movies'], movies, attr['movies']['primary'],  attr['movies']['secondary'], xbmc, writeBack = movies)
         # Compare TV shows
-        changes['shows'] = _listChanges(data['shows'], shows, attr['shows']['primary'],  attr['shows']['secondary'], xbmc, writeBack = None)
+        changes['shows'] = _listChanges(data['shows'], shows, attr['shows']['primary'],  attr['shows']['secondary'], xbmc, writeBack = shows)
         # Compare TV episodes
-        changes['episodes'] = _listChanges(data['episodes'], episodes, attr['episodes']['primary'],  attr['episodes']['secondary'], xbmc, writeBack = None)
+        changes['episodes'] = _listChanges(data['episodes'], episodes, attr['episodes']['primary'],  attr['episodes']['secondary'], xbmc, writeBack = episodes)
     else:
         # Compare movies
         changes['movies'] = _listChanges(data['movies'], cache['movies'], attr['movies']['primary'],  attr['movies']['secondary'], xbmc, writeBack = movies)
@@ -713,10 +713,11 @@ def _syncCompare(data, xbmc = False, cache = None):
         changes['episodes'] = _listChanges(data['episodes'], cache['episodes'], attr['episodes']['primary'],  attr['episodes']['secondary'], xbmc, writeBack = episodes)
     return changes
 
-def _listChanges(newer, older, attributes, weakAttributes, xbmc = False, writeBack = False):
+def _listChanges(newer, older, attributes, weakAttributes, xbmc = False, writeBack = None):
     changes = []
     # Find new items
-    for remoteId in newer:
+    remoteIds = newer.keys()   
+    for remoteId in remoteIds:
         if remoteId is None: continue
         if not validRemoteId(remoteId): continue
         newItem = newer[remoteId]
@@ -727,8 +728,9 @@ def _listChanges(newer, older, attributes, weakAttributes, xbmc = False, writeBa
                 if newItem['_'+attribute] is not None: changes.append({'remoteId': remoteId, 'subject': attribute, 'value':newItem['_'+attribute], 'weak': True, 'bestBefore': time.time()+24*60*60})
             for attribute in weakAttributes:
                 if newItem['_'+attribute] is not None: changes.append({'remoteId': remoteId, 'subject': attribute, 'value':newItem['_'+attribute], 'weak': True, 'bestBefore': time.time()+24*60*60})
-        
-    for remoteId in older:
+    
+    remoteIds = older.keys()    
+    for remoteId in remoteIds:
         if len(remoteId) == 0: continue
         if not validRemoteId(remoteId): continue
         oldItem = older[remoteId]
@@ -755,8 +757,6 @@ def _listChanges(newer, older, attributes, weakAttributes, xbmc = False, writeBa
                 oldItem._bestBefore[attribute] = time.time()+24*60*60
         oldItem._bestBefore['libraryStatus'] = time.time()+12*60*60
         if writeBack is None:
-            older[remoteId] = oldItem
-        elif writeBack == False:
             pass
         else:
             writeBack[remoteId] = oldItem
