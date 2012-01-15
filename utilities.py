@@ -154,7 +154,7 @@ def traktShowListByRemoteId(data):
     
 # search movies on trakt
 def searchTraktForMovie(title, year=None):
-    query = urllib.quote_plus(repr(unicode(title))[1:].strip('\'\"'))
+    query = urllib.quote_plus(title.encode('ascii', 'replace'))
     data = Trakt.searchMovies(query)
     if data is None:
         return None
@@ -185,7 +185,7 @@ def searchTraktForMovie(title, year=None):
 # search imdb via google
 def searchGoogleForImdbId(query):
     conn = httplib.HTTPConnection("ajax.googleapis.com")
-    conn.request("GET", "/ajax/services/search/web?v=1.0&q=site:www.imdb.com+"+urllib.quote_plus(repr(unicode(query))[1:].strip('\'\"')))
+    conn.request("GET", "/ajax/services/search/web?v=1.0&q=site:www.imdb.com+"+urllib.quote_plus(query.encode('utf-8')))
     response = conn.getresponse()
     try:
         raw = response.read()
@@ -196,7 +196,7 @@ def searchGoogleForImdbId(query):
                     imdbid = re.search('/(tt[0-9]{7})/', result['url']).group(1)
                     Debug("[~] "+str(imdbid))
                     return imdbid;
-    except ValueError:
+    except (ValueError, TypeError):
         Debug("googleQuery: Bad JSON responce: "+raw)
         if not daemon: notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": Bad responce from google") # Error
         return None
