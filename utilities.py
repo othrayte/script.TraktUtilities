@@ -198,7 +198,7 @@ def searchGoogleForImdbId(query):
                     return imdbid;
     except (ValueError, TypeError):
         Debug("googleQuery: Bad JSON responce: "+raw)
-        if not daemon: notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": Bad responce from google") # Error
+        notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": Bad responce from google") # Error
         return None
     return None
     
