@@ -29,7 +29,7 @@ debug = __settings__.getSetting( "debug" )
 
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
 
-class Scrobbler(threading.Thread):
+class Scrobbler():
     totalTime = 0
     watchedTime = 0
     startTime = 0
@@ -38,7 +38,8 @@ class Scrobbler(threading.Thread):
     playlistLength = 1
     abortRequested = False
     
-    def run(self):
+    @async
+    def start(self):
         # When requested ping trakt to say that the user is still watching the item
         count = 0
         try:
@@ -60,7 +61,7 @@ class Scrobbler(threading.Thread):
         except AsyncCloseRequest:
             pass
         Debug("[Scrobbler] Closing");
-
+    
     def playbackStarted(self, data):
         self.curVideo = data['item']
         if self.curVideo <> None:

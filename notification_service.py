@@ -25,16 +25,12 @@ __settings__ = xbmcaddon.Addon( "script.TraktUtilities" )
 __language__ = __settings__.getLocalizedString
 
 # Receives XBMC notifications and passes them off to the rating functions
-class NotificationService(threading.Thread):
-    abortRequested = False
-    def run(self):        
-        #while xbmc is running
-        self.scrobbler = Scrobbler()
-        self.scrobbler.start()
-        
+class NotificationService():
+    @async
+    def start(self):            
         tn = None
         try:
-            while (not (self.abortRequested or xbmc.abortRequested)):
+            while (not xbmc.abortRequested):
                 try:
                     tn = telnetlib.Telnet('localhost', 9090, 10)
                 except IOError as (errno, strerror):
@@ -82,11 +78,12 @@ class NotificationService(threading.Thread):
                 time.sleep(1)
         except AsyncCloseRequest:
             tn.close()
+            Debug("[Notification Service] Closing");
+            raise
         else:
             if tn is not None: tn.close()
-        Debug("[Notification Service] Waiting for Scrobbler to finish");
-        self.scrobbler.join()
-        Debug("[Notification Service] Closing");
+            Debug("[Notification Service] Closing");
+            raise AsyncCloseRequest()
     
     @async
     def _handleNotification(self, notification):            
@@ -98,12 +95,12 @@ class NotificationService(threading.Thread):
         # Forward notification to functions
         if 'method' in data and 'params' in data and 'sender' in data['params'] and data['params']['sender'] == 'xbmc':
             if data['method'] == 'Player.OnStop':
-                self.scrobbler.playbackEnded()
+                scrobbler.playbackEnded()
             elif data['method'] == 'Player.OnPlay':
                 if 'data' in data['params'] and 'item' in data['params']['data'] and 'id' in data['params']['data']['item'] and 'type' in data['params']['data']['item']:
-                    self.scrobbler.playbackStarted(data['params']['data'])
+                    scrobbler.playbackStarted(data['params']['data'])
             elif data['method'] == 'Player.OnPause':
-                self.scrobbler.playbackPaused()
+                scrobbler.playbackPaused()
             elif data['method'] in ('VideoLibrary.OnUpdate', 'VideoLibrary.OnRemove'):
                 if 'data' in data['params']:
                     if 'type' in data['params']['data'] and 'id' in data['params']['data']:

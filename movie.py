@@ -5,6 +5,8 @@ import xbmc,xbmcaddon
 from utilities import *
 import trakt_cache
 from trakt import Trakt
+from sqlobject import *
+from ids import RemoteMovieId, LocalMovieId
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -17,39 +19,28 @@ __settings__ = xbmcaddon.Addon( "script.TraktUtilities" )
 __language__ = __settings__.getLocalizedString
 
 # Caches all information between the add-on and the web based trakt api
-class Movie(object):
+class Movie(SQLObject):
+    _remoteIds = MultipleJoin('RemoteMovieId')
+    _localIds = MultipleJoin('LocalMovieId')
     
-    def __init__(self, remoteId, static=False):
-        if remoteId is None:
-            raise ValueError("Must provide the id for the movie")
-        self._remoteId = str(remoteId)
-        
-        if not static:
-            if self.reread():
-                return
-                
-        self._title = None
-        self._year = None
-        self._runtime = None
-        self._released = None
-        self._tagline = None
-        self._overview = None
-        self._classification = None
-        self._playcount = None
-        self._rating = None
-        self._watchlistStatus = None
-        self._recommendedStatus = None
-        self._libraryStatus = None
-        self._traktDbStatus = None
-        
-        self._trailer = None
-        
-        self._poster = None
-        self._fanart = None
-        
-        self._bestBefore = {}
-        self._static = static
-        
+    _title = StringCol(default=None)
+    _year = IntCol(default=None)
+    _runtime = IntCol(default=None)
+    _released = DateTimeCol(default=None)
+    _tagline = StringCol(default=None)
+    _overview = StringCol(default=None)
+    _classification = StringCol(default=None)
+    _playcount = IntCol(default=None)
+    _rating = IntCol(default=None)
+    _watchlistStatus = BoolCol(default=None)
+    _recommendedStatus = BoolCol(default=None)
+    _libraryStatus = BoolCol(default=None)
+    _traktDbStatus = BoolCol(default=None)
+
+    _bestBefore = PickleCol(default={})
+
+    __unsafeProperties = ('_title',  '_year', '_runtime', '_released', '_tagline', '_overview', '_classification', '_playcount', '_rating', '_watchlistStatus',  '_recommendedStatus', '_libraryStatus', '_traktDbStatus', '_trailer', '_poster', '_fanart')
+            
     def __repr__(self):
         return "<"+repr(self._title)+" ("+str(self._year)+") - "+str(self._remoteId)+","+str(self._libraryStatus)+","+str(self._poster)+","+str(self._runtime)+","+repr(self._tagline)+">"
         
@@ -92,16 +83,137 @@ class Movie(object):
         if index == "_poster": self._poster = value
         if index == "_fanart": self._fanart = value
     
+    def __iter__(self):
+        for key in __unsafeProperties:
+            yield key
+
+    def __contains__(self, item):
+        return item in __unsafeProperties
     
-    def save(self):
-        self._static = False
-        trakt_cache.saveMovie(self)
-        
+    def keys():
+        return __unsafeProperties
+
     def refresh(self, property = None):
-        if not self._static:
-            trakt_cache.refreshMovie(self._remoteId, property)
-            self.reread()
-            
+        if property in ('recommendedStatus'):
+            refreshRecommendedMovies()
+            return
+
+        xbmcMovies = []
+        for localId in _localIds:
+            movie = Movie.fromXbmc(getMovieDetailsFromXbmc(localId,['title', 'year', 'originaltitle', 'imdbnumber', 'playcount', 'lastplayed', 'runtime']))
+            if movie is None:
+               movie = {}
+            xbmcMovies.append(movie)
+        xbmcMovie = Movie.mergeListStatic(xbmcMovies)
+        
+        traktMovie = download()
+
+        changeVectors = compare(xbmcMovie, traktMovie)
+    
+    #Merging object data
+    @staticmethod
+    def mergeListStatic(list):
+        movie = {}
+        for item in list:
+            mergeStatic(movie, item)
+        return movie
+    
+    @staticmethod
+    def mergeStatic(a, b):
+        out = a
+        for key in b.keys():
+            if key in out:
+                if key in ('rating', 'playcount', 'remoteIds', 'localIds'):
+                    if key == 'rating':
+                        out['rating'] = max(a['rating'], b['rating'])
+                    elif key == 'playcount':
+                        out['playcount'] = max(a['playcount'], b['playcount'])
+                    elif key == 'remoteIds':
+                        providers = b[key].keys()
+                        for provider in providers:
+                            if provider not in a[key] or a[key][provider] <> b[key][provider]:
+                                a[key][provider] = b[key][provider]
+                    elif key == 'localIds':
+                        for id in b[key]:
+                            if id not in a[key]:
+                                a[key].append(id)
+
+                else:
+                    pass #conflict
+            else:
+                out[key] = b[key]
+    return out
+    
+    #Merging objects
+    def __ior__(self, other):
+        for key in other.keys():
+            if key in self:
+                if key in ('_rating', '_playcount'):
+                    out[key] = max(a[key], b[key])
+                elif key == '_remoteIds':
+                    idsS = self[key]
+                    sources = {}
+                    for id in idsS:
+                        sources[id.source] = id
+                    idsO = other[key]
+                    for id in idsO:
+                        if id.source not in sources.keys() or id.remoteId <> sources[id.source].remoteId:
+                            id.movie = this
+                        else:
+                            id.destroySelf()
+                elif key == '_localIds':
+                    idsS = self[key]
+                    ids = []
+                    for id in idsS:
+                        ids.append(id.localId)
+                    idsO = other[key]
+                    for id in idsO:
+                        if id.localId not in ids.keys():
+                            id.movie = this
+                        else:
+                            id.destroySelf()
+
+
+                else:
+                    pass #conflict
+            else:
+                self[key] = other[key]
+        other.destroySelf()
+
+    #Enumerate diff
+    def __xor__(self, other):
+        for key in self.keys():
+            if self[key] <> other
+
+# if nothing to do (externals unknown or all same)
+    #next
+# if new data (cache unknown)
+    # if soft
+        #next
+    # else
+        # if l unknown
+# if simple (not all diff)
+# All diff
+"""
+Three way compare logic
+    /  ~
+??? -  -
+??1 <~ -
+?1? -  -
+?11 <  -
+?12 <  <~
+1?? >~ -
+1?1 >< -
+1?2 ?  -
+11? >  -
+111 -  -
+112 <  ?
+12? >  >~
+121 >< ><
+122 >  ?
+123 ?  ?
+"""
+
     def reread(self):
         newer = trakt_cache.getMovie(self._remoteId)
         if newer is None:
@@ -294,36 +406,37 @@ class Movie(object):
     @staticmethod
     def fromTrakt(movie, static = True):
         if movie is None: return None
+        local = {}
+        local['remoteIds'] = []
         if 'imdb_id' in movie:
-            local = Movie("imdb="+movie['imdb_id'], static)
-        elif 'tmdb_id' in movie:
-            local = Movie("tmdb="+movie['tmdb_id'], static)
-        else:
-            return None
-        local._title = movie['title']
-        local._year = movie['year']
+            local['remoteIds'].append({'imdb': movie['imdb_id']})
+        if 'tmdb_id' in movie:
+            local['remoteIds'].append({'tmdb': movie['tmdb_id']})
+
+        local['title'] = movie['title']
+        local['year'] = movie['year']
         if 'plays' in movie:
-            local._playcount = movie['plays']
+            local['playcount'] = movie['plays']
         if 'in_watchlist' in movie:
-            local._watchlistStatus = movie['in_watchlist']
+            local['watchlistStatus'] = movie['in_watchlist']
         if 'in_collection' in movie:
-            local._libraryStatus = movie['in_collection']
+            local['libraryStatus'] = movie['in_collection']
         if 'images' in movie and 'poster' in movie['images']:
-            local._poster = movie['images']['poster']
+            local['poster'] = movie['images']['poster']
         if 'images' in movie and 'fanart' in movie['images']:
-            local._fanart = movie['images']['fanart']
+            local['fanart'] = movie['images']['fanart']
         if 'runtime' in movie:
-            local._runtime = movie['runtime']
+            local['runtime'] = movie['runtime']
         if 'released' in movie:
-            local._released = movie['released']
+            local['released'] = movie['released']
         if 'tagline' in movie:
-            local._tagline = movie['tagline']
+            local['tagline'] = movie['tagline']
         if 'overview' in movie:
-            local._overview = movie['overview']
+            local['overview'] = movie['overview']
         if 'certification' in movie:
-            local._classification = movie['certification']
+            local['classification'] = movie['certification']
         if 'trailer' in movie:
-            local._trailer = movie['trailer']
+            local['trailer'] = movie['trailer']
             
         return local
      

@@ -4,7 +4,8 @@
 import xbmc,xbmcaddon,xbmcgui
 
 from utilities import *
-import notification_service
+from notification_service import NotificationService
+from scrobbler import Scrobbler
 import trakt_cache
 import time
 from async_tools import *
@@ -26,22 +27,39 @@ cacheDirectory = "special://profile/addon_data/script.TraktUtilities/"
 
 # Initialise all of the background services    
 def autostart():
-    # Initialise the cache
-    trakt_cache.init(os.path.join(cacheDirectory,"trakt_cache"))
-    
-    # Initialise the notification handler
-    notificationThread = notification_service.NotificationService()
-    notificationThread.start()
-    
-    # Trigger update checks for the cache
-    trakt_cache.trigger()
-    
-    # Wait for the notification handler to quit
-    notificationThread.join()
     try:
+        # Initialise the cache
+        trakt_cache.init(os.path.join(cacheDirectory,"trakt_cache"))
+            
+        # Initialise the scrobbler
+        global scrobbler
+        scrobbler = Scrobbler()
+        scrobbler.start()
+        
+        # Initialise the notification handler
+        notificationThread = NotificationService()
+        notificationThread.start()
+
+        # Trigger update checks for the cache
+        trakt_cache.trigger()
+        
         tuThreads.join()
-    except AsyncCloseRequest:
-        pass
+    except:
+        e = sys.exc_info()
+        tuThreads.finishUp()
+        try:
+            tuThreads.join()
+        except AsyncCloseRequest:
+            pass
+        Debug("[Service] Cleaning up db")
+        try:
+            trakt_cache.close()
+        except:
+            pass
+        Debug("[Service] Dieing");
+        raise e[1], None, e[2]
+    Debug("[Service] Cleaning up db")
+    trakt_cache.close()
     Debug("[Service] Closing");
     
 if __name__ == "__main__" :

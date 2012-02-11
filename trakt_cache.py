@@ -6,7 +6,9 @@ from utilities import *
 from movie import Movie
 from show import Show
 from episode import Episode
-import time
+from ttl import TTL
+from ids import *
+from datetime import timedelta, datetime
 import shelve
 from trakt import Trakt
 from shove import Shove
@@ -70,18 +72,31 @@ _location = None
 ##
 
 def init(location=None):
-    global _location
-    _location = xbmc.translatePath(location)
-    if _location is not None:
-        Debug(str(_location))
-        global movies
-        movies = Shove("sqlite:///"+_location+".movies.db")
-        global shows
-        shows = Shove("sqlite:///"+_location+".shows.db")
-        global episodes
-        episodes = Shove("sqlite:///"+_location+".episodes.db")
-        global expire
-        expire = Shove("sqlite:///"+_location+".ttl.db")
+    from sqlobject import *
+    import sys, os
+
+    db_filename = os.path.abspath(xbmc.translatePath(location)+'.db')
+    if os.path.exists(db_filename):
+        os.unlink(db_filename)
+    connection_string = 'sqlite:' + db_filename
+    connection = connectionForURI(connection_string)
+    sqlhub.processConnection = connection
+
+    Movie.createTable()
+    RemoteId.createTable()
+    RemoteMovieId.createTable()
+    #RemoteShowId.createTable()
+    #RemoteEpisodeId.createTable()
+    LocalId.createTable()
+    LocalMovieId.createTable()
+    #LocalShowId.createTable()
+    #LocalEpisodeId.createTable()
+    #Show.createTable()
+    #Episode.createTable()
+    TTL.createTable()
+
+def close():
+    sqlhub.processConnection.close()
     
 def _sync(xbmcData = None, traktData = None, cacheData = None):
     Debug("[TraktCache] Syncronising")
@@ -142,6 +157,7 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
     cacheChanges['shows'] = []
     cacheChanges['episodes'] = []
     
+    Debug("[TraktCache] Syncing - Culling changes")
     if traktData is not None and xbmcData is not None:
         for type in ['movies', 'shows', 'episodes']:
             removeListT = []
@@ -207,6 +223,8 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
     #    if item['remoteId'] == isolatedId:
     #        Debug("[~] C"+repr(item))
                     
+    
+    Debug("[TraktCache] Syncing - Applying changes")
     # Perform cache only changes
     Debug("[TraktCache] Updating cache")
     _updateCache(cacheChanges, traktData)
@@ -236,6 +254,7 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
 ##
 
 def _updateCache(changes, traktData = {}):
+    toDebugFile(changes, 'cache')
     if 'movies' in changes:
         for change in changes['movies']:
             Debug("[TraktCache] Cache update: "+repr(change))
@@ -320,6 +339,7 @@ def _updateCache(changes, traktData = {}):
 
 def _updateXbmc(changes, traktData = {}):
     cacheChanges = {}
+    toDebugFile(changes, 'xbmc')
     
     if 'movies' in changes:
         cacheChanges['movies'] = []
@@ -371,6 +391,7 @@ def _updateXbmc(changes, traktData = {}):
 
 def _updateTrakt(newChanges = None, traktData = {}):
     changeQueue = {}
+    toDebugFile(newChanges, 'trakt')
     if '_queue' in movies:
         changeQueue['movies'] = movies['_queue']
     else:
@@ -547,6 +568,42 @@ def _updateTrakt(newChanges = None, traktData = {}):
             queue.remove(change)
             episodes['_queue'] = queue
     _updateCache(cacheChanges, traktData)
+
+def toDebugFile(changes, destination):
+    cacheDirectory = "special://profile/addon_data/script.TraktUtilities/"
+    try:
+        myFile = open(xbmc.translatePath(os.path.join(cacheDirectory,"changes.csv")), 'a+')
+    except IOError:
+        myFile = open(xbmc.translatePath(os.path.join(cacheDirectory,"changes.csv")), 'w')
+        myFile.write("destination,type,remoteId,subject,value\n")
+    if changes is None: return
+    for type in changes:
+        if changes[type] is None: continue
+        for change in changes[type]:
+            if type == 'episodes':
+                ep = getEpisode(change['remoteId'])
+                if ep is None or change['remoteId'] is None:
+                    title = change['remoteId']
+                else:
+                    show = getShow(ep._showRemoteId)
+                    if show is None or ep._showRemoteId is None:
+                        title = change['remoteId']
+                    else:
+                        title = str(show._title) +" ("+ str(show._year) +") "+ str(ep._season) +"x"+ str(ep._episode)
+            if type == 'movies':
+                movie = getMovie(change['remoteId'])
+                if movie is None or change['remoteId'] is None:
+                    title = change['remoteId']
+                else:
+                    title = str(movie._title) +" ["+ str(movie._year)+"]"
+            if type == 'shows':
+                show = getShow(change['remoteId'])
+                if show is None or change['remoteId'] is None:
+                    title = change['remoteId']
+                else:
+                    title = str(show._title) +" ["+ str(show._year)+"]"
+            myFile.write(str(destination)+","+str(str(type))+","+str(title)+","+str(change['subject'])+","+str(change['value'])+"\n")
+    myFile.close()
 
 ##
 # DB Readers
@@ -822,50 +879,65 @@ _setStucture = {
     }
 }
     
-syncTimes = {'episodelibrary': 6*60*60,
-             'episodeseen': 3*60*60,
-             'episodewatchlist': 10*60,
-             'episodeimages': 12*60*60,
-             'episodeall': 24*60*60,
-             'showrecommended': 60*60,
-             'showwatchlist': 10*60,
-             'showimages': 12*60*60,
-             'showall': 24*60*60,
-             'moviewatchlist': 10*60,
-             'movierecommended': 60*60,
-             'movieseen': 3*60*60,
-             'movielibrary': 6*60*60,
-             'movieimages': 12*60*60,
-             'movieall': 24*60*60,
-             'library': 60*60,
-             'watchlist': 30*60,
-             'all': 24*60*60,
-             'useractivity': 2*60*60,
-             'friendsactivity': 3*60*60}
+syncTimes = {'episodelibrary': timedelta(hours=6),
+             'episodeseen': timedelta(hours=3),
+             'episodewatchlist': timedelta(minutes=10),
+             'episodeimages': timedelta(hours=12),
+             'episodeall': timedelta(hours=24),
+             'showrecommended': timedelta(hours=1),
+             'showwatchlist': timedelta(minutes=10),
+             'showimages': timedelta(hours=12),
+             'showall': timedelta(hours=24),
+             'moviewatchlist': timedelta(minutes=10),
+             'movierecommended': timedelta(hours=1),
+             'movieseen': timedelta(hours=3),
+             'movielibrary': timedelta(hours=6),
+             'movieimages': timedelta(hours=12),
+             'movieall': timedelta(hours=24),
+             'library': timedelta(hours=1),
+             'watchlist': timedelta(minutes=30),
+             'all': timedelta(hours=24),
+             'useractivity': timedelta(hours=2),
+             'friendsactivity': timedelta(hours=3)}
 
 def getActivityUpdates(force=False):
     checkUserActivity = -1
     userActCount = 0
     checkFriendsActivity = -1
     friendsActCount = 0
-    if 'useractivity' not in expire or expire['useractivity'] is None:
-        expire['useractivity'] = time.time()
-    if expire['useractivity'] < time.time()-syncTimes['useractivity'] or force:
-        checkUserActivity = expire['useractivity']
-    if 'friendsactivity' not in expire or expire['friendsactivity'] is None:
-        expire['friendsactivity'] = time.time()
-    if expire['friendsactivity'] < time.time()-syncTimes['friendsactivity'] or force:
-        checkFriendsActivity = expire['friendsactivity']
+    
+    initTTL('useractivity')
+    if checkTTL('useractivity') or force:
+        checkUserActivity = getTTL('useractivity')
+
+    initTTL('friendsactivity')
+    if checkTTL('friendsactivity') or force:
+        checkFriendsActivity = getTTL('friendsactivity')
+
     if checkUserActivity <> -1:
         timeStamp, userActCount = refreshFromUserActivity(checkUserActivity)
-        expire['useractivity'] = timeStamp
+        setTTL('useractivity', timeStamp)
     """if checkFriendsActivity <> -1:
         timeStamp, friendsActCount = refreshFromFriendsActivity(checkFriendsActivity)
         expire['friendsactivity'] = timeStamp"""
     if userActCount >= 100 or friendsActCount >= 100:
         return False
     return True
-    
+
+def initTTL(name):
+    if TTL.select(TTL.q.name==name).count() == 0:
+        TTL(name=name, time=datetime.now())
+
+def getTTL(name):
+    entries = TTL.select(TTL.q.name==name)
+    return entries.getOne(datetime.now()).time
+
+def checkTTL(name):
+    return getTTL(name) < datetime.now()-syncTimes[name]
+
+def setTTL(name, time):
+    TTL.select(TTL.q.name==name).getOne().time = time
+ 
 def updateSyncTimes(sets = [], remoteIds = []):
     updated = {}
     sets = set(sets)
@@ -876,9 +948,9 @@ def updateSyncTimes(sets = [], remoteIds = []):
             Debug("[TraktCache] Tried to bump update time of unknown update set:" +updatedSet)
             continue
         Debug("[TraktCache] Updating timestamp for "+str(updatedSet))
-        expire[updatedSet] = time.time() + syncTimes[updatedSet]
+        expire[updatedSet] = datetime.now() + syncTimes[updatedSet]
     for remoteId in remoteIds:
-        expire[remoteId] = time.time() + 10*60 # +10mins
+        expire[remoteId] = datetime.now() + 10*60 # +10mins
 
 def setPropergatePositive(sets, structure):
     more = True
@@ -908,20 +980,16 @@ def needSyncAtLeast(sets = [], movieIds = [], showIds = [], episodeIds = [], for
     sets = set(sets)
     sets = setPropergateNegative(sets, _setStucture)
     for staleSet in sets:
-        stale = staleSet not in expire or expire[staleSet] < time.time() or force
-        if stale:
+        if getTTL(staleSet) or force:
             refreshSet(staleSet)
     for remoteId in movieIds:
-        stale = remoteId not in expire or expire[remoteId] < time.time() or force
-        if stale:
+        if getTTL(remoteId) or force:
             refreshMovie(remoteId)
     for remoteId in showIds:
-        stale = remoteId not in expire or expire[remoteId] < time.time() or force
-        if stale:
+        if getTTL(remoteId) or force:
             refreshShow(remoteId)
     for remoteId in episodeIds:
-        stale = remoteId not in expire or expire[remoteId] < time.time() or force
-        if stale:
+        if getTTL(remoteId) or force:
             refreshEpisode(remoteId)
     return
 
@@ -1030,9 +1098,9 @@ def relateEpisodeId(localId, remoteId):
         index = {}
     index[localId] = remoteId
     episodes['_byLocalId'] = index
-      
-def refreshMovie(remoteId, property = None):
-    localIds = getMovieLocalIds(remoteId)
+
+def refreshShow(remoteId, property = None):
+    localIds = getShowLocalIds(remoteId)
     if len(localIds) == 0:
         localId = None
     else:
@@ -1040,30 +1108,59 @@ def refreshMovie(remoteId, property = None):
     xbmcData = None
     cacheData = None
     if localId is not None:
-        movie = Movie.fromXbmc(getMovieDetailsFromXbmc(localId,['title', 'year', 'originaltitle', 'imdbnumber', 'playcount', 'lastplayed', 'runtime']))
-        if movie is not None:
-            xbmcData = {'movies': {remoteId: movie}}
+        show = Show.fromXbmc(getShowDetailsFromXbmc(localId,['title', 'year']))
+        if show is not None:
+            xbmcData = {'shows': {remoteId: show}}
         else:
-            xbmcData = {'movies': {}}
+            xbmcData = {'shows': {}}
     if property is not None:
-        if property in ('title', 'year', 'runtime', 'released', 'tagline', 'overview', 'classification', 'playcount', 'rating', 'watchlistStatus', 'libraryStatus', 'traktDbStatus', 'trailer', 'poster', 'fanart'):
-            movie = Movie.download(remoteId)
-            if movie is not None:
-                traktData = {'movies': {remoteId: movie}}
+        if property in ('title', 'year', 'firstAired', 'country', 'overview', 'runtime', 'network', 'airDay', 'airTime', 'classification', 'rating', 'watchlistStatus', 'poster', 'fanart', 'episodes'):
+            show = Show.download(remoteId)
+            if show is not None:
+                traktData = {'shows': {remoteId: show}}
             else:
-                traktData = {'movies': {}}
+                traktData = {'shows': {}}
         elif property in ('recommendedStatus'):
-            refreshRecommendedMovies()
+            refreshRecommendedShows()
             return
     else:
-        traktData = {'movies': {remoteId: Movie.download(remoteId)}}
-    if remoteId in movies:
-        cacheData = {'movies': {remoteId: movies[remoteId]}}
+        traktData = {'shows': {remoteId: Show.download(remoteId)}}
+    if remoteId in shows:
+        cacheData = {'shows': {remoteId: shows[remoteId]}}
             
     _sync(xbmcData, traktData, cacheData)
     
     expire[remoteId] = time.time() + 10*60 # +10mins
 
+def refreshEpisode(remoteId, property = None):
+    localIds = getEpisodeLocalIds(remoteId)
+    if len(localIds) == 0:
+        localId = None
+    else:
+        localId  = localIds[0]
+    xbmcData = None
+    cacheData = None
+    if localId is not None:
+        episode = Episode.fromXbmc(getEpisodeDetailsFromXbmc(localId,['title', 'year']))
+        if episode is not None:
+            xbmcData = {'episodes': {remoteId: episode}}
+        else:
+            xbmcData = {'episodes': {}}
+    if property is not None:
+        if property in ('title', 'overview', 'classification', 'playcount', 'rating', 'firstAired', 'watchlistStatus', 'libraryStatus', 'screen', 'fanart'):
+            episode = Episode.download(remoteId)
+            if episode is not None:
+                traktData = {'episodes': {remoteId: show}}
+            else:
+                traktData = {'episodes': {}}
+    else:
+        traktData = {'episodes': {remoteId: Episode.download(remoteId)}}
+    if remoteId in shows:
+        cacheData = {'episodes': {remoteId: episodes[remoteId]}}
+            
+    _sync(xbmcData, traktData, cacheData)
+    
+    expire[remoteId] = time.time() + 10*60 # +10mins
 
 def saveMovie(movie):
     movies[movie._remoteId] = movie
