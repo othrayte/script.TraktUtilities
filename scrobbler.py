@@ -68,6 +68,7 @@ class Scrobbler(threading.Thread):
                     time.sleep(1) # Wait for possible silent seek (caused by resuming)
                     self.watchedTime = xbmc.Player().getTime()
                     self.totalTime = xbmc.Player().getTotalTime()
+                    Debug("[Scrobbler] WARNING: Total time not found assuming length is standard!!")
                     if self.totalTime == 0:
                         if self.curVideo['type'] == 'movie':
                             self.totalTime = 90
