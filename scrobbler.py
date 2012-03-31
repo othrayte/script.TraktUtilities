@@ -65,8 +65,9 @@ class Scrobbler(threading.Thread):
                     if not xbmc.Player().isPlayingVideo():
                         Debug("[Scrobbler] Suddenly stopped watching item")
                         return
-                    time.sleep(1) # Wait for possible silent seek (caused by resuming)
+                    time.sleep(5) # Wait for possible silent seek (caused by resuming)
                     self.watchedTime = xbmc.Player().getTime()
+                    Debug("[Scrobbler] Found initial watched time: "+str(self.watchedTime))
                     self.totalTime = xbmc.Player().getTotalTime()
                     if self.totalTime == 0:
                         if self.curVideo['type'] == 'movie':
