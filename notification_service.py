@@ -44,8 +44,8 @@ class NotificationService(threading.Thread):
             
             Debug("[Notification Service] Waiting~");
             bCount = 0
-            
             while (not (self.abortRequested or xbmc.abortRequested)):
+                Debug("[Notification Service] Message so far: "+str(notification));
                 try:
                     if bCount == 0:
                         notification = ""
@@ -68,6 +68,7 @@ class NotificationService(threading.Thread):
                     if bCount < 0:
                         bCount = 0
                 except EOFError:
+                    Debug("[NotificationService] ERROR: EOFError")
                     break #go out to the other loop to restart the connection
                 
                 Debug("[Notification Service] message: " + str(notification))
@@ -88,7 +89,11 @@ class NotificationService(threading.Thread):
                         if 'data' in data['params'] and 'playcount' in data['params']['data']:
                             instantSyncPlayCount(data)
                     elif data['method'] == 'System.OnQuit':
-                        self.abortRequested = True
+                    self.abortRequested = True
+        if xbmc.abortRequested:
+            Debug("[NotificationService] Abort nequested by xbmc")
+        if self.abortRequested:
+            Debug("[NotificationService] Abort nequested by self")
         try:
             tn.close()
         except:
