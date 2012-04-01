@@ -167,6 +167,7 @@ class Scrobbler(threading.Thread):
         __settings__ = xbmcaddon.Addon( "script.TraktUtilities" ) #read settings again, encase they have changed
         scrobbleMinViewTimeOption = __settings__.getSetting("scrobble_min_view_time")
         
+        Debug("[Scrobbler] watched "+str(self.watchedTime)+" of "+str(self.totalTime)+" requiring "+str(scrobbleMinViewTimeOption)+"%")
         if (self.watchedTime/self.totalTime)*100>=float(scrobbleMinViewTimeOption):
             self.scrobble()
         else:
