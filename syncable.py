@@ -86,14 +86,16 @@ class Syncable:
         other.destroySelf()
 
     #Enumerate diff
-    def diff(self, left, right):
-        return self ^ (left, right)
-
     def __xor__(self, others):
         left = other[0]
         right = other[1]
+        return self.diff(left, right)
+
+    def diff(self, left, right, keys=None):
         changes = []
-        for key in self.keys():
+        if keys is None:
+            keys = self.keys();
+        for key in keys:
             cacheV = self[key]
             cacheN = cacheV is Null
             leftN = left[key] is Null
@@ -151,12 +153,65 @@ class Syncable:
     """
 
     # Set syncing
-    def setDiff(self, key, left, right):
-    	changes = self.setDiffPositive(key, left, right)
-    	changes += self.setDiffNegative(key, left, right)
-    	return changes
+    @staticmethod
+    def diffSet(key, lefts, type, rights):
+        cur = {}
+        leftNew = []
+        rightNew = []
+        for left in lefts:
+            id = type.find(left)
+            if id is None:
+                leftNew.append(left)
+            else:
+                cur[id] = (left, None)
+        for right in rights:
+            id = type.find(right)
+            if id is None:
+                rightNew.append(right)
+            else:
+                if id in cur:
+                    cur[id] = (cur[id][0], right)
+                else:
+                    cur[id] = (None, right)
+        type.get
+        for left in leftNew:
+            if 
+        diff()
+        return changes
 
-    def setDiffPositive(self, key, left, right):
-    	
+    @staticmethod
+    def diffSetPositive(key, left, cache, right):
+        changes = self.diffSet(key, left, right)
+        posChanges = []
+        for change in changes:
+            try:
+                if change['value']:
+                    posChanges.append(change)
+            except KeyError:
+                pass
+        return posChanges
 
-    def setDiffNegative(self, key, left, right):
+    @staticmethod
+    def link(lefts, rights):
+        foundId = {}
+        linkId = -1
+        links = {}
+        for left in lefts:
+            linkId += 1
+            links[linkId] = (left, None)
+            try:
+                for source in left['remoteIds'].keys():
+                    if not source in foundId:
+                        foundId[source] = []
+                    try:
+                        lId = foundId[source][id]
+                        cur = links[lId][0]
+                        left = mergeStatic(cur, left)
+                    except KeyError:
+                        foundId[source][id] = linkId
+            except KeyError:
+                pass
+
+    @staticmethod
+    def find(cache, ids):
+        #Search the cache for the correct 

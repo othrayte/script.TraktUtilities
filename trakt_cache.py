@@ -7,7 +7,7 @@ from movie import Movie
 from show import Show
 from episode import Episode
 from ttl import TTL
-from ids import *
+from ids import RemoteId, RemoteMovieId, LocalId, LocalMovieId
 from datetime import timedelta, datetime
 import shelve
 from trakt import Trakt
@@ -72,7 +72,7 @@ _location = None
 ##
 
 def init(location=None):
-    from sqlobject import *
+    from sqlobject import sqlhub
     import sys, os
 
     db_filename = os.path.abspath(xbmc.translatePath(location)+'.db')

@@ -83,16 +83,6 @@ class Movie(SQLObject, Syncable):
         if index == "_trailer": self._trailer = value
         if index == "_poster": self._poster = value
         if index == "_fanart": self._fanart = value
-    
-    def __iter__(self):
-        for key in __unsafeProperties:
-            yield key
-
-    def __contains__(self, item):
-        return item in __unsafeProperties
-    
-    def keys():
-        return __unsafeProperties
 
     def refresh(self, property = None):
         if property in ('recommendedStatus'):
@@ -306,11 +296,11 @@ class Movie(SQLObject, Syncable):
     def fromTrakt(movie, static = True):
         if movie is None: return None
         local = {}
-        local['remoteIds'] = []
+        local['remoteIds'] = {}
         if 'imdb_id' in movie:
-            local['remoteIds'].append({'imdb': movie['imdb_id']})
+            local['remoteIds']['imdb'] = movie['imdb_id']
         if 'tmdb_id' in movie:
-            local['remoteIds'].append({'tmdb': movie['tmdb_id']})
+            local['remoteIds']['tmdb'] = movie['tmdb_id']
 
         local['title'] = movie['title']
         local['year'] = movie['year']
