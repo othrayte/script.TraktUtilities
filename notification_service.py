@@ -44,6 +44,7 @@ class NotificationService(threading.Thread):
             
             Debug("[Notification Service] Waiting~");
             bCount = 0
+            notification = ""
             while (not (self.abortRequested or xbmc.abortRequested)):
                 Debug("[Notification Service] Message so far: "+str(notification));
                 try:
