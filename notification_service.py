@@ -89,7 +89,7 @@ class NotificationService(threading.Thread):
                         if 'data' in data['params'] and 'playcount' in data['params']['data']:
                             instantSyncPlayCount(data)
                     elif data['method'] == 'System.OnQuit':
-                    self.abortRequested = True
+                        self.abortRequested = True
         if xbmc.abortRequested:
             Debug("[NotificationService] Abort nequested by xbmc")
         if self.abortRequested:
