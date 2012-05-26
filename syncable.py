@@ -153,7 +153,7 @@ class Syncable:
     """
 
     # Set syncing
-    @staticmethod
+    """@staticmethod
     def diffSet(key, lefts, type, rights):
         cur = {}
         leftNew = []
@@ -189,7 +189,7 @@ class Syncable:
                     posChanges.append(change)
             except KeyError:
                 pass
-        return posChanges
+        return posChanges"""
 
     @staticmethod
     def link(lefts, rights):
@@ -198,20 +198,109 @@ class Syncable:
         links = {}
         for left in lefts:
             linkId += 1
-            links[linkId] = (left, None)
+            links[linkId] = [left, None]
             try:
                 for source in left['remoteIds'].keys():
                     if not source in foundId:
-                        foundId[source] = []
+                        foundId[source] = {}
                     try:
+                        id = left['remoteIds'][source]
+                        print id
                         lId = foundId[source][id]
                         cur = links[lId][0]
-                        left = mergeStatic(cur, left)
+                        left = Syncable.mergeStatic(cur, left)
+                        del links[lId]
                     except KeyError:
-                        foundId[source][id] = linkId
+                        pass
+                    foundId[source][id] = linkId
             except KeyError:
                 pass
+        for right in rights:
+            linkId += 1
+            links[linkId] = [None, right]
+            try:
+                for source in right['remoteIds'].keys():
+                    if not source in foundId:
+                        foundId[source] = {}
+                    try:
+                        id = right['remoteIds'][source]
+                        print id
+                        lId = foundId[source][id]
+                        cur = links[lId][1]
+                        links[linkId][0] = links[lId][0]
+                        if cur is None:
+                            links[linkId][1] = right
+                        else:
+                            links[linkId][1] = Syncable.mergeStatic(cur, right)
+                        del links[lId]
+                    except KeyError:
+                        pass
+                    foundId[source][id] = linkId
+                    # find others with same id and change them
+                    for source in foundId.keys():
+                        for id in foundId[source]:
+                            if foundId[source][id] == lId:
+                                foundId[source][id] = linkId
+            except KeyError:
+                pass
+        import pprint
+        pprint.pprint(links)
 
     @staticmethod
     def find(cache, ids):
         #Search the cache for the correct 
+        pass
+
+    @staticmethod
+    def testLefts():
+        return [
+            {
+                'remoteIds': {'tmdb': 53223},
+                'title': "A"
+            },
+            {
+                'remoteIds': {'imdb': 31524, 'tmdb': 53223},
+                'title': "A"
+            },
+            {
+                'remoteIds': {'imdb': 679, 'tmdb': 8547},
+                'title': "C"
+            },
+            {
+              'remoteIds': {'tmdb': 1235},
+                'title': "D"
+            },
+            {
+              'remoteIds': {'tmdb': 23728},
+                'title': "E"
+            }
+        ]
+
+    @staticmethod
+    def testRights():
+        return [
+            {
+                'remoteIds': {'tmdb': 53223},
+                'title': "A"
+            },
+            {
+                'remoteIds': {'imdb': 31524},
+                'title': "A"
+            },
+            {
+                'remoteIds': {'tmdb': 8547},
+                'title': "C"
+            },
+            {
+              'remoteIds': {'imdb': 2473, 'tmdb': 1235},
+                'title': "D"
+            },
+            {
+              'remoteIds': {'imdb': 5732},
+                'title': "F"
+            }
+        ]
+
+    @staticmethod
+    def test():
+        return Syncable.link(Syncable.testLefts(), Syncable.testRights())
