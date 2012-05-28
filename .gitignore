@@ -1,1 +1,5 @@
 *.pyo
+
+# SublimeText
+*.sublime-project
+*.sublime-workspace
