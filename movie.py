@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 
+#
 
 import xbmc,xbmcaddon
 from utilities import *
@@ -295,6 +295,7 @@ class Movie(SQLObject, Syncable):
     @staticmethod
     def setFromTrakt(key, array):
         set = []
+        if array is None: raise TypeError("Needed an iterable type, usually an array but got NoneType")
         for item in array:
             local = Movie.fromTrakt(item)
             local[key] = true
@@ -391,4 +392,3 @@ class Movie(SQLObject, Syncable):
             return "tt"+idString[5:]
         elif idString.find('tmbd=') == 0:
             return idString[5:]
-        
