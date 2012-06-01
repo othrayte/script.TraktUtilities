@@ -43,7 +43,7 @@ class NotificationService():
                 Debug("[Notification Service] Ready and waiting");
                 bCount = 0
                 
-                while (not (self.abortRequested or xbmc.abortRequested)):
+                while (not xbmc.abortRequested):
                     try:
                         if bCount == 0:
                             notification = ""
@@ -70,7 +70,7 @@ class NotificationService():
                         break #go out to the other loop to restart the connection
                     
                     # Deal with the notifiaction in a sub thread so that we can handle requests more efficiently
-                    NotificationService._handleNotification(self, notification).ignore()
+                    self._handleNotification(notification).ignore()
                     
                     safeExitPoint()
                     # Trigger update checks for the cache
@@ -83,7 +83,7 @@ class NotificationService():
         else:
             if tn is not None: tn.close()
             Debug("[Notification Service] Closing");
-            raise AsyncCloseRequest()
+            raise AsyncCloseRequest('')
     
     @async
     def _handleNotification(self, notification):            

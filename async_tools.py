@@ -59,7 +59,14 @@ class Pool():
     def finishUp(self):
         self.event.acquire()
         self.closing = True
-        self.event.notify()
+        self.event.notifyAll()
+        self.event.release()
+
+    def weld(self):
+        self.event.acquire()
+        while self.slotCount > 0 or self.queueCount > 0:
+            self.event.notifyAll()
+            self.event.wait()
         self.event.release()
         
     def safeExitPoint(self):
@@ -136,6 +143,15 @@ class AsyncCall():
     def __runner(self):
         try:
             r = self.func(*self.args, **self.kwargs)
+        except AsyncCloseRequest, acr:
+            import sys
+            self.event.acquire()
+            self.returned = True
+            self.e = sys.exc_info()
+            self.event.notify()
+            self.event.release()
+            if self.pool is not None: self.pool.finishUp()
+
         except Exception, e:
             import sys
             self.event.acquire()
@@ -178,7 +194,7 @@ def async(func):
         if 'pool' in kwargs:
             pool = kwargs['pool']
         else:
-            pool = None
+            pool = 'default'
         #print globals()
         #globals()[func.__module__].__dict__[func.__name__] = func
         return AsyncCall(func, pool, *args, **kwargs)

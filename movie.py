@@ -291,7 +291,17 @@ class Movie(SQLObject, Syncable):
         if str(self._remoteId).find('tmdb=') == 0:
             movie['tmdb_id'] = self._remoteId[5:]
         return movie
-        
+    
+    @staticmethod
+    def setFromTrakt(key, array):
+        set = []
+        for item in array:
+            local = Movie.fromTrakt(item)
+            local[key] = true
+            set.append(local)
+        return set
+
+
     @staticmethod
     def fromTrakt(movie, static = True):
         if movie is None: return None

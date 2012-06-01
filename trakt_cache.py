@@ -11,7 +11,6 @@ from ids import RemoteId, RemoteMovieId, LocalId, LocalMovieId
 from datetime import timedelta, datetime
 import shelve
 from trakt import Trakt
-from shove import Shove
 from async_tools import Pool, AsyncCall, async
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
@@ -72,7 +71,7 @@ _location = None
 ##
 
 def init(location=None):
-    from sqlobject import sqlhub
+    from sqlobject import sqlhub, connectionForURI
     import sys, os
 
     db_filename = os.path.abspath(xbmc.translatePath(location)+'.db')
@@ -96,6 +95,7 @@ def init(location=None):
     TTL.createTable()
 
 def close():
+    from sqlobject import sqlhub
     sqlhub.processConnection.close()
     
 def _sync(xbmcData = None, traktData = None, cacheData = None):
@@ -1385,24 +1385,11 @@ def refreshLibrary():
     
 def refreshMovieWatchlist():
     Debug("[TraktCache] Refreshing movie watchlist")
-    traktWatchlist = Trakt.userWatchlistMovies(username)
-    watchlist = {}
-    traktData = {}
-    traktData['movies'] = []
-    for movie in traktWatchlist:
-        localMovie = Movie.fromTrakt(movie)
-        watchlist[localMovie._remoteId] = localMovie
-    traktData['movies'] = watchlist
-    _sync(traktData = traktData)
-    for remoteId in movies:
-        if not validRemoteId(remoteId): continue
-        movie = movies[remoteId]
-        if movie is None:
-            continue
-        if movie['_watchlistStatus'] <> (remoteId in watchlist):
-            movie['_watchlistStatus'] = not movie['_watchlistStatus']
-            movies[movie._remoteId] = movie
-    updateSyncTimes(['moviewatchlist'], watchlist.keys())
+    traktWatchlist = Movie.setFromTrakt('watchlistStatus', Trakt.userWatchlistMovies(username))
+    diff = Movie.diffSet('watchlistStatus', None, Movie, traktWatchlist)
+    log(diff)
+    Movie.apply(diff)
+    updateSyncTimes(['moviewatchlist'])
     
 def refreshShowWatchlist():
     Debug("[TraktCache] Refreshing show watchlist")

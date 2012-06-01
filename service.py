@@ -37,8 +37,7 @@ def autostart():
         scrobbler.start()
         
         # Initialise the notification handler
-        notificationThread = NotificationService()
-        notificationThread.start()
+        NotificationService().start().ignore()
 
         # Trigger update checks for the cache
         trakt_cache.trigger()
@@ -46,16 +45,12 @@ def autostart():
         tuThreads.join()
     except:
         e = sys.exc_info()
+        Debug("[Service] Requesting all TU threads finish up")
         tuThreads.finishUp()
-        try:
-            tuThreads.join()
-        except AsyncCloseRequest:
-            pass
+        Debug("[Service] Waiting for all threads to end")
+        tuThreads.weld()
         Debug("[Service] Cleaning up db")
-        try:
-            trakt_cache.close()
-        except:
-            pass
+        trakt_cache.close()
         Debug("[Service] Dieing");
         raise e[1], None, e[2]
     Debug("[Service] Cleaning up db")

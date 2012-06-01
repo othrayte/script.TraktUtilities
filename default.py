@@ -25,57 +25,62 @@ __language__ = __settings__.getLocalizedString
 Debug("default: " + __settings__.getAddonInfo("id") + " - version: " + __settings__.getAddonInfo("version"))
 
 def switchBoard():
-    Debug("[Default] Request: "+repr(sys.argv))
-    if len(sys.argv[2]) == 0:
+    Debug("[Default] Requests: "+repr(sys.argv))
+    
+    if len(sys.argv) < 2:
         menu()
         return
-    if sys.argv[2].find('?menu=') == 0:
-        menuName = sys.argv[2][6:]
-        Debug(str(menuName))
-        if menuName == 'menu':
-            menu()
-        elif menuName == 'watchlist':
-            submenuWatchlist()
-        elif menuName == 'friends':
-            showFriends()
-        elif menuName == 'recommendations':
-            submenuRecommendations()
-        elif menuName == 'trending':
-            submenuTrendingMoviesTVShows()
-        elif menuName == 'updateSyncClean':
-            submenuUpdateSyncClean()
-        elif menuName == 'testing':
-            testing()
-        else:
-            menu()
-        return
-    if sys.argv[2].find('?view=') == 0:
-        windowName = sys.argv[2][6:]
-        Debug("Requesting display of window "+repr(windowName))
-        if windowName in ('watchlistMovies', 'watchlistShows', 'trendingMovies', 'trendingShows', 'recommendedMovies', 'recommendedShows'):
-            rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'JSONRPC.NotifyAll','params':{'sender': 'TraktUtilities', 'message': 'TraktUtilities.View', 'data':{'window':windowName}}, 'id': 1})
-            Debug("[~] "+repr(rpccmd))
+        
+    for i in range(1, len(sys.argv)): 
+        if sys.argv[i].find('?menu=') == 0:
+            menuName = sys.argv[i][6:]
+            Debug("[Default] Requested menu: "+str(menuName))
+            if menuName == 'menu':
+                menu()
+            elif menuName == 'watchlist':
+                submenuWatchlist()
+            elif menuName == 'friends':
+                showFriends()
+            elif menuName == 'recommendations':
+                submenuRecommendations()
+            elif menuName == 'trending':
+                submenuTrendingMoviesTVShows()
+            elif menuName == 'updateSyncClean':
+                submenuUpdateSyncClean()
+            elif menuName == 'testing':
+                testing()
+            else:
+                Debug("[Default] Unknown menu: "+str(menuName))
+            continue
+        if sys.argv[i].find('?view=') == 0:
+            windowName = sys.argv[i][6:]
+            Debug("[Default] Requested window: "+str(windowName))
+            if windowName in ('watchlistMovies', 'watchlistShows', 'trendingMovies', 'trendingShows', 'recommendedMovies', 'recommendedShows'):
+                rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'JSONRPC.NotifyAll','params':{'sender': 'TraktUtilities', 'message': 'TraktUtilities.View', 'data':{'window':windowName}}, 'id': 1})
+                Debug("[~] "+repr(rpccmd))
+                result = xbmc.executeJSONRPC(rpccmd)
+                result = json.loads(result)
+            continue
+        if sys.argv[i].find('?sync=') == 0:
+            setName = sys.argv[i][6:]
+            Debug("[Default] Requested sync of set: "+str(setName))
+            rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'JSONRPC.NotifyAll','params':{'sender': 'TraktUtilities', 'message': 'TraktUtilities.Sync', 'data':{'set':setName}}, 'id': 1})
             result = xbmc.executeJSONRPC(rpccmd)
             result = json.loads(result)
-        return
-    if sys.argv[2].find('?sync=') == 0:
-        setName = sys.argv[2][6:]
-        Debug("Requesting sync of set "+repr(setName))
-        rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'JSONRPC.NotifyAll','params':{'sender': 'TraktUtilities', 'message': 'TraktUtilities.Sync', 'data':{'set':setName}}, 'id': 1})
-        result = xbmc.executeJSONRPC(rpccmd)
-        result = json.loads(result)
-        return
-    if sys.argv[2].find('?action=') == 0:
-        actionName = sys.argv[2][8:]
-        Debug(str(actionName))
-        if actionName == 'stop':
-            stopTraktUtilities()
-        elif actionName == 'start':
-            xbmc.executescript(__settings__.getAddonInfo("path")+'\\service.py')
-        else:
-            menu()
-        return
-    menu()
+            continue
+        if sys.argv[i].find('?action=') == 0:
+            actionName = sys.argv[i][8:]
+            Debug("[Default] Requested action: "+str(actionName))
+            Debug(str(actionName))
+            if actionName == 'stop':
+                stopTraktUtilities()
+            elif actionName == 'start':
+                Debug("[Default] Trying to start TraktUtilities service")
+                xbmc.executescript(__settings__.getAddonInfo("path")+'\\service.py')
+            else:
+                Debug("[Default] Unknown action: "+str(actionName))
+            continue
+        Debug("[Default] Unknown request: "+str(sys.argv[i]))
 
 def submenu(menuName, title):
     li = xbmcgui.ListItem(title)
