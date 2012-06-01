@@ -140,6 +140,7 @@ class NotificationService():
                     setName = data['params']['data']['set']
                     trakt_cache.refreshSet(setName)
             elif data['method'] == 'Other.TraktUtilities.Stop':
+                Debug("[NotificationService] Closing down TUs backend")
                 tuThreads.finishUp()
             else:
                 Debug("[Notification Service] Bad request from TU")
