@@ -153,9 +153,10 @@ class Syncable:
     """
 
     # Set syncing
-    """@staticmethod
+    @staticmethod
     def diffSet(key, lefts, type, rights):
-        cur = {}
+        return []
+    """    cur = {}
         leftNew = []
         rightNew = []
         for left in lefts:
@@ -250,6 +251,11 @@ class Syncable:
     def find(cache, ids):
         #Search the cache for the correct 
         pass
+
+    @staticmethod
+    def apply(diff):
+        #Apply diff, redirecmting as appropriete
+        return
 
     @staticmethod
     def testLefts():

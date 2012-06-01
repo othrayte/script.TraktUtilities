@@ -27,6 +27,8 @@ cacheDirectory = "special://profile/addon_data/script.TraktUtilities/"
 
 # Initialise all of the background services    
 def autostart():
+    checkSettings()
+
     try:
         # Initialise the cache
         trakt_cache.init(os.path.join(cacheDirectory,"trakt_cache"))

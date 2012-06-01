@@ -1400,7 +1400,6 @@ def refreshMovieWatchlist():
     Debug("[TraktCache] Refreshing movie watchlist")
     traktWatchlist = Movie.setFromTrakt('watchlistStatus', Trakt.userWatchlistMovies(username))
     diff = Movie.diffSet('watchlistStatus', None, Movie, traktWatchlist)
-    log(diff)
     Movie.apply(diff)
     updateSyncTimes(['moviewatchlist'])
     

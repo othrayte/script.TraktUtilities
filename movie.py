@@ -298,7 +298,7 @@ class Movie(SQLObject, Syncable):
         if array is None: raise TypeError("Needed an iterable type, usually an array but got NoneType")
         for item in array:
             local = Movie.fromTrakt(item)
-            local[key] = true
+            local[key] = True
             set.append(local)
         return set
 

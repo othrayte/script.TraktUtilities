@@ -62,7 +62,9 @@ def notification( header, message, time=5000, icon=__settings__.getAddonInfo( "i
 
 # When called from a caught exception this will mutate the typr of the exception and append the str() of the passed exception type instance
 def mutate(new, value):
-    raise new().__class__, value+str(sys.exc_info()[1]), sys.exc_info()[2]
+    import sys
+    inf = sys.exc_info()
+    raise new((value,inf[1])), None, inf[2]
 
 global tuThreads    
 tuThreads = Pool(10)

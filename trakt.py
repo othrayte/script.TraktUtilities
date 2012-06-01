@@ -45,9 +45,17 @@ headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/
 
 # When called from a caught exception this will mutate the typr of the exception and append the str() of the passed exception type instance
 def mutate(new, value):
-    raise new().__class__, value+str(sys.exc_info()[1]), sys.exc_info()[2]
+    import sys
+    inf = sys.exc_info()
+    raise new((value,inf[1])), None, inf[2]
 
 class TraktError(Exception):
+    def __init__(self, value=""):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class TraktRequestInvalid(Exception):
     def __init__(self, value=""):
         self.value = value
     def __str__(self):
@@ -139,6 +147,7 @@ class Trakt():
 
         args.update(argd)
         try:
+            if username == "" or username is None: raise Exception("Username undefined")
             req = req.replace("%%API_KEY%%",apikey)
             req = req.replace("%%USERNAME%%",username)
             if method == 'POST':
@@ -155,7 +164,7 @@ class Trakt():
             elif method == 'GET':
                 conn.request('GET', req)
             else:
-                return None
+                return TraktRequestInvalid("Connection method unknown:" + str(method))
             Debug("[Trakt] trakt json url: "+req)
         except socket.error, e:
             Debug("[Trakt] traktQuery: can't connect to trakt")
@@ -177,7 +186,7 @@ class Trakt():
                     data['status'] = 'failure'
                     data['error'] = 'Abort requested, not waiting for responce'
                     return data;
-                return None
+                raise TraktRequestFailed("Abort requested, not waiting for responce")
             if conn.hasResult():
                 break
             time.sleep(0.1)
@@ -197,7 +206,7 @@ class Trakt():
                 data['error'] = 'Bad responce from trakt'
                 return data
             if not daemon: notification("Trakt Utilities", __language__(1109).encode( "utf-8", "ignore" ) + ": Bad responce from trakt") # Error
-            return None
+            mutate(TraktRequestFailed, "Non/bad JSON responce: "+repr(raw)+", ")
         
         if 'status' in data:
             if data['status'] == 'failure':
