@@ -71,7 +71,6 @@ def switchBoard():
         if sys.argv[i].find('?action=') == 0:
             actionName = sys.argv[i][8:]
             Debug("[Default] Requested action: "+str(actionName))
-            Debug(str(actionName))
             if actionName == 'stop':
                 stopTraktUtilities()
             elif actionName == 'start':
