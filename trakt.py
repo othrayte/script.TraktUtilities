@@ -39,6 +39,31 @@ debug = __settings__.getSetting( "debug" )
 
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
 
+##
+# Exceptions
+##
+
+# When called from a caught exception this will mutate the typr of the exception and append the str() of the passed exception type instance
+def mutate(new, value):
+    raise new().__class__, value+str(sys.exc_info()[1]), sys.exc_info()[2]
+
+class TraktError(Exception):
+    def __init__(self, value=""):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class TraktRequestFailed(TraktError):
+    def __init__(self, value=""):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
+class TraktConnectionFailed(TraktRequestFailed):
+    def __init__(self, value=""):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
 
 ##
 # Request caching
@@ -108,9 +133,9 @@ class Trakt():
             if returnStatus:
                 data = {}
                 data['status'] = 'failure'
-                data['error'] = 'Unable to connect to trakt'
+                data['error'] = 'Unable to connect to trakt.tv'
                 return data
-            return None
+            raise TraktConnectionFailed("Unable to connect to trakt.tv")
 
         args.update(argd)
         try:
@@ -131,16 +156,16 @@ class Trakt():
                 conn.request('GET', req)
             else:
                 return None
-            Debug("trakt json url: "+req)
-        except socket.error:
-            Debug("traktQuery: can't connect to trakt")
+            Debug("[Trakt] trakt json url: "+req)
+        except socket.error, e:
+            Debug("[Trakt] traktQuery: can't connect to trakt")
             if not daemon: notification("Trakt Utilities", __language__(1108).encode( "utf-8", "ignore" )) # can't connect to trakt
             if returnStatus:
                 data = {}
                 data['status'] = 'failure'
                 data['error'] = 'Socket error, unable to connect to trakt'
                 return data;
-            return None
+            mutate(TraktConnectionFailed, "Unable to connect to trakt.tv, socket error: ")
          
         conn.go()
         

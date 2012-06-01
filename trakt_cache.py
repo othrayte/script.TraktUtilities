@@ -836,15 +836,24 @@ def makeChanges(changes, traktOnly = False, xbmcOnly = False):
 # Sync timing
 ##
 
+class TUSyncFailed(Exception):
+    def __init__(self, value=""):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 def trigger():
     Debug("[TraktCache] Starting triggered updates")
-    Debug("[TraktCache] Getting partial list of changes")
-    if not getActivityUpdates(): # if the activity updates might ve missing some data
-        Debug("[TraktCache] Getting extended list of changes")
-        needSyncAtLeast(['library', 'watchlist'], force=True)
-    Debug("[TraktCache] Updating stale sets")
-    needSyncAtLeast(['all'])
-    Debug("[TraktCache] All triggered updates complete")
+    try:
+        Debug("[TraktCache] Getting partial list of changes")
+        if not getActivityUpdates(): # if the activity updates might ve missing some data
+            Debug("[TraktCache] Getting extended list of changes")
+            needSyncAtLeast(['library', 'watchlist'], force=True)
+        Debug("[TraktCache] Updating stale sets")
+        needSyncAtLeast(['all'])
+        Debug("[TraktCache] All triggered updates complete")
+    except TUSyncFailed, e:
+        Debug("[TraktCache] Unable to complete triggered updates: "+str(e))
 
 _setStucture = {
     'all': {
@@ -976,21 +985,25 @@ def setPropergatePositive(sets, structure):
     return sets, found
 
 def needSyncAtLeast(sets = [], movieIds = [], showIds = [], episodeIds = [], force = False):
-    # This function should block untill all syncs have been satisfied
-    sets = set(sets)
-    sets = setPropergateNegative(sets, _setStucture)
-    for staleSet in sets:
-        if getTTL(staleSet) or force:
-            refreshSet(staleSet)
-    for remoteId in movieIds:
-        if getTTL(remoteId) or force:
-            refreshMovie(remoteId)
-    for remoteId in showIds:
-        if getTTL(remoteId) or force:
-            refreshShow(remoteId)
-    for remoteId in episodeIds:
-        if getTTL(remoteId) or force:
-            refreshEpisode(remoteId)
+    from trakt import TraktRequestFailed
+    # This function should block untill all syncs have been satisfied, unless a Trakt request failed
+    try:
+        sets = set(sets)
+        sets = setPropergateNegative(sets, _setStucture)
+        for staleSet in sets:
+            if getTTL(staleSet) or force:
+                refreshSet(staleSet)
+        for remoteId in movieIds:
+            if getTTL(remoteId) or force:
+                refreshMovie(remoteId)
+        for remoteId in showIds:
+            if getTTL(remoteId) or force:
+                refreshShow(remoteId)
+        for remoteId in episodeIds:
+            if getTTL(remoteId) or force:
+                refreshEpisode(remoteId)
+    except TraktRequestFailed, e:
+        mutate(TUSyncFailed, "Failed trakt.tv request prevented syncing: ")
     return
 
 def setPropergateNegative(sets, structure, fireSale=False):

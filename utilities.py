@@ -60,6 +60,10 @@ def Debug(msg, force=False):
 def notification( header, message, time=5000, icon=__settings__.getAddonInfo( "icon" ) ):
     xbmc.executebuiltin( "XBMC.Notification(%s,%s,%i,%s)" % ( header, message, time, icon ) )
 
+# When called from a caught exception this will mutate the typr of the exception and append the str() of the passed exception type instance
+def mutate(new, value):
+    raise new().__class__, value+str(sys.exc_info()[1]), sys.exc_info()[2]
+
 global tuThreads    
 tuThreads = Pool(10)
 Pool.setGlobalPool(tuThreads)
