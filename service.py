@@ -27,6 +27,7 @@ cacheDirectory = "special://profile/addon_data/script.TraktUtilities/"
 
 # Initialise all of the background services    
 def autostart():
+
     checkSettings()
 
     try:
@@ -50,6 +51,7 @@ def autostart():
         Debug("[Service] Waiting for all threads to end")
         tuThreads.weld()
     except:
+        Debug("[Service] Following error was caught here")
         e = sys.exc_info()
         Debug("[Service] Requesting all TU threads finish up")
         tuThreads.finishUp()

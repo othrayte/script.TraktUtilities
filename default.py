@@ -22,7 +22,7 @@ __status__ = "Production"
 __settings__ = xbmcaddon.Addon( "script.TraktUtilities" )
 __language__ = __settings__.getLocalizedString
 
-Debug("default: " + __settings__.getAddonInfo("id") + " - version: " + __settings__.getAddonInfo("version"))
+Debug("[Default] " + __settings__.getAddonInfo("id") + " - version: " + __settings__.getAddonInfo("version"))
 
 def switchBoard():
     Debug("[Default] Requests: "+repr(sys.argv))

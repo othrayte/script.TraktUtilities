@@ -1,0 +1,5 @@
+# Try to keep all line ending as LF
+*.py text=auto eof=LF
+*.gitignore text=auto eof=LF
+*.xml text=auto eof=LF
+*.txt text=auto eof=LF

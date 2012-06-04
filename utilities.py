@@ -1,4 +1,4 @@
-    # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 # 
 
 import os, sys
@@ -10,6 +10,8 @@ except ImportError: import json
 
 from nbhttpconnection import *
 from async_tools import *
+
+from exc_types import *
 
 import urllib, re
 
@@ -60,13 +62,13 @@ def Debug(msg, force=False):
 def notification( header, message, time=5000, icon=__settings__.getAddonInfo( "icon" ) ):
     xbmc.executebuiltin( "XBMC.Notification(%s,%s,%i,%s)" % ( header, message, time, icon ) )
 
-# When called from a caught exception this will mutate the typr of the exception and append the str() of the passed exception type instance
-def mutate(new, value):
-    import sys
-    inf = sys.exc_info()
-    raise new((value,inf[1])), None, inf[2]
 
-global tuThreads    
+global tuThreads
+try:
+    print tuThreads
+    Debug("[~] Error: tuThreads already exists")
+except:
+    pass  
 tuThreads = Pool(10)
 Pool.setGlobalPool(tuThreads)
 
@@ -88,15 +90,18 @@ def checkSettings(daemon=False):
             __settings__.openSettings()
         return False
     
-    data = Trakt.jsonRequest('POST', '/account/test/%%API_KEY%%', daemon=True)
-    if data == None: #Incorrect trakt login details
-        if daemon:
-            notification("Trakt Utilities", __language__(1110).encode( "utf-8", "ignore" )) # please enter your Password in settings
-        else:
-            xbmcgui.Dialog().ok("Trakt Utilities", __language__(1110).encode( "utf-8", "ignore" )) # please enter your Password in settings
-            __settings__.openSettings()
-        return False
-        
+    try:
+        data = Trakt.jsonRequest('POST', '/account/test/%%API_KEY%%', daemon=True)
+    except TraktRequestFailed, e:
+        Debug("Unable to rerify trakt details, continuing anyway: "+str(e))
+    else:
+        if data == None: #Incorrect trakt login details
+            if daemon:
+                notification("Trakt Utilities", __language__(1110).encode( "utf-8", "ignore" )) # please enter your Password in settings
+            else:
+                xbmcgui.Dialog().ok("Trakt Utilities", __language__(1110).encode( "utf-8", "ignore" )) # please enter your Password in settings
+                __settings__.openSettings()
+            return False
     return True
 
 # SQL string quote escaper

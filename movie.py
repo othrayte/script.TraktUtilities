@@ -2,12 +2,15 @@
 #
 
 import xbmc,xbmcaddon
+
+from sqlobject import *
+
 from utilities import *
 import trakt_cache
 from trakt import Trakt
-from sqlobject import *
 from ids import RemoteMovieId, LocalMovieId
 from syncable import Syncable
+from identifiable_object import IdentifiableObject
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -20,10 +23,7 @@ __settings__ = xbmcaddon.Addon( "script.TraktUtilities" )
 __language__ = __settings__.getLocalizedString
 
 # Caches all information between the add-on and the web based trakt api
-class Movie(SQLObject, Syncable):
-    _remoteIds = MultipleJoin('RemoteMovieId')
-    _localIds = MultipleJoin('LocalMovieId')
-    
+class Movie(IdentifiableObject, Syncable):    
     _title = StringCol(default=None)
     _year = IntCol(default=None)
     _runtime = IntCol(default=None)
@@ -37,6 +37,9 @@ class Movie(SQLObject, Syncable):
     _recommendedStatus = BoolCol(default=None)
     _libraryStatus = BoolCol(default=None)
     _traktDbStatus = BoolCol(default=None)
+
+    _poster = StringCol(default=None)
+    _fanart = StringCol(default=None)
 
     _bestBefore = PickleCol(default={})
 
@@ -291,17 +294,6 @@ class Movie(SQLObject, Syncable):
         if str(self._remoteId).find('tmdb=') == 0:
             movie['tmdb_id'] = self._remoteId[5:]
         return movie
-    
-    @staticmethod
-    def setFromTrakt(key, array):
-        set = []
-        if array is None: raise TypeError("Needed an iterable type, usually an array but got NoneType")
-        for item in array:
-            local = Movie.fromTrakt(item)
-            local[key] = True
-            set.append(local)
-        return set
-
 
     @staticmethod
     def fromTrakt(movie, static = True):

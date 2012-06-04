@@ -2,9 +2,15 @@
 # 
 
 import xbmc,xbmcaddon
-import trakt_cache
+
+from sqlobject import *
+
 from utilities import Debug
+import trakt_cache
 from trakt import Trakt
+from ids import RemoteShowId, LocalShowId
+from syncable import Syncable
+from identifiable_object import IdentifiableObject
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -17,38 +23,32 @@ __settings__ = xbmcaddon.Addon( "script.TraktUtilities" )
 __language__ = __settings__.getLocalizedString
 
 # Caches all information between the add-on and the web based trakt api
-class Show:
+class Show(IdentifiableObject, Syncable):
+    _title = StringCol(default=None)
+    _year = IntCol(default=None)
+    _firstAired = IntCol(default=None)
+    _country = StringCol(default=None)
+    _overview = StringCol(default=None)
+    _runtime = IntCol(default=None)
+    _network = StringCol(default=None)
+    _airDay = StringCol(default=None)
+    _airTime = IntCol(default=None)
+    _classification = StringCol(default=None)
+    _rating = IntCol(default=None)
+    _watchlistStatus = BoolCol(default=None)
+    _recommendedStatus = BoolCol(default=None)
+    _traktDbStatus = BoolCol(default=None)
     
-    def __init__(self, remoteId, static=False):
-        if remoteId is None:
-            raise ValueError("Must provide the id for the show")
-        self._remoteId = str(remoteId)
-        if not static:
-            if self.reread():
-                return
-        
-        self._title = None
-        self._year = None
-        self._firstAired = None
-        self._country = None
-        self._overview = None
-        self._runtime = None
-        self._network = None
-        self._airDay = None
-        self._airTime = None
-        self._classification = None
-        self._rating = None
-        self._watchlistStatus = None
-        self._recommendedStatus = None
-        self._traktDbStatus = None
-        
-        self._poster = None
-        self._fanart = None
-        
-        self._episodes = {}
-        
-        self._bestBefore = {}
-        self._static = static
+    _poster = StringCol(default=None)
+    _fanart = StringCol(default=None)
+    _banner = StringCol(default=None)
+    
+    _episodes = MultipleJoin('Episode')
+    
+    _bestBefore = PickleCol(default={})
+
+    __unsafeProperties = ('_title',  '_year', '_firstAired', '_country', '_overview', '_runtime', '_network', '_airDay', '_airTime', '_classification', '_rating', '_watchlistStatus',  '_recommendedStatus', '_traktDbStatus', '_trailer', '_poster', '_fanart', '_banner')
+    
     
     def __repr__(self):
         return "<"+repr(self._title)+" ("+str(self._year)+") - "+str(self._remoteId)+","+str(self._poster)+","+str(self._runtime)+">"
@@ -294,41 +294,40 @@ class Show:
     @staticmethod
     def fromTrakt(show, static = True):
         if show is None: return None
+        local = {}
+        local['remoteIds'] = {}
         if 'tvdb_id' in show:
-            local = Show("tvdb="+show['tvdb_id'], static)
-        elif 'imdb_id' in movie:
-            local = Show("imdb="+show['imdb_id'], static)
-        else:
-            return None
-        local._title = show['title']
-        local._year = show['year']
-        if 'url' in show:
-            local._playcount = show['url']
+            local['remoteIds']['tvdb'] = show['tvdb_id']
+        if 'imdb_id' in show:
+            local['remoteIds']['imdb'] = show['imdb_id']
+
+        local['title'] = show['title']
+        local['year'] = show['year']
         if 'in_watchlist' in show:
-            local._watchlistStatus = show['in_watchlist']
+            local['watchlistStatus'] = show['in_watchlist']
         if 'images' in show and 'poster' in show['images']:
-            local._poster = show['images']['poster']
+            local['poster'] = show['images']['poster']
         if 'images' in show and 'fanart' in show['images']:
-            local._fanart = show['images']['fanart']
+            local['fanart'] = show['images']['fanart']
         if 'first_aired' in show:
-            local._firstAired = show['first_aired']
+            local['firstAired'] = show['first_aired']
         if 'coutnry' in show:
-            local._coutnry = show['coutnry']
+            local['coutnry'] = show['coutnry']
         if 'network' in show:
-            local._network = show['network']
+            local['network'] = show['network']
         if 'runtime' in show:
-            local._runtime = show['runtime']
+            local['runtime'] = show['runtime']
         if 'air_day' in show:
-            local._airDay = show['air_day']
+            local['airDay'] = show['air_day']
         if 'air_time' in show:
-            local._airTime = show['air_time']
+            local['airTime'] = show['air_time']
         if 'tagline' in show:
-            local._tagline = show['tagline']
+            local['tagline'] = show['tagline']
         if 'overview' in show:
-            local._overview = show['overview']
+            local['overview'] = show['overview']
         if 'certification' in show:
-            local._classification = show['certification']
-        return local
+            local['classification'] = show['certification']
+        return locals
         
     @staticmethod
     def fromXbmc(show, static = True):

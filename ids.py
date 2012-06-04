@@ -1,31 +1,39 @@
 from sqlobject import *
 from sqlobject.inheritance import InheritableSQLObject
 
-import movie
-from show import Show
-from episode import Episode
-
 class RemoteId(InheritableSQLObject):
 	source = StringCol()
 	remoteid = StringCol()
 
-class RemoteMovieId(RemoteId):
-	movie = ForeignKey('Movie')
-
-"""class RemoteShowId(RemoteId):
-	show = ForeignKey('Show')
-
-class RemoteEpisodeId(RemoteId):
-	episode = ForeignKey('Episode')"""
-		
 class LocalId(InheritableSQLObject):
 	localid = IntCol()
 
+class RemoteMovieId(RemoteId):
+	movie = ForeignKey('Movie')
+	def get():
+		return movie
+
 class LocalMovieId(LocalId):
 	movie = ForeignKey('Movie')
+	def get():
+		return movie
 
-"""class LocalShowId(LocalId):
+class RemoteShowId(RemoteId):
 	show = ForeignKey('Show')
+	def get():
+		return show
+		
+class LocalShowId(LocalId):
+	show = ForeignKey('Show')
+	def get():
+		return show
+
+class RemoteEpisodeId(RemoteId):
+	episode = ForeignKey('Episode')
+	def get():
+		return episode
 
 class LocalEpisodeId(LocalId):
-	episode = ForeignKey('Episode')"""
+	episode = ForeignKey('Episode')
+	def get():
+		return episode

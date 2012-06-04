@@ -1,4 +1,4 @@
-    # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 # 
 
 import os, sys
@@ -10,6 +10,8 @@ except ImportError: import json
 
 from nbhttpconnection import *
 from utilities import Debug, notification, sha1
+
+from exc_types import *
 
 import urllib, re
 
@@ -38,40 +40,6 @@ pwd = sha1(__settings__.getSetting("password")).hexdigest()
 debug = __settings__.getSetting( "debug" )
 
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
-
-##
-# Exceptions
-##
-
-# When called from a caught exception this will mutate the typr of the exception and append the str() of the passed exception type instance
-def mutate(new, value):
-    import sys
-    inf = sys.exc_info()
-    raise new((value,inf[1])), None, inf[2]
-
-class TraktError(Exception):
-    def __init__(self, value=""):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
-
-class TraktRequestInvalid(Exception):
-    def __init__(self, value=""):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
-
-class TraktRequestFailed(TraktError):
-    def __init__(self, value=""):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
-
-class TraktConnectionFailed(TraktRequestFailed):
-    def __init__(self, value=""):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
 
 ##
 # Request caching

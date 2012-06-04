@@ -12,7 +12,17 @@ class Syncable:
     def keys():
         return __unsafeProperties
 
-         #Merging object data
+    @classmethod
+    def setFromTrakt(cls, key, array):
+        set = []
+        if array is None: raise TypeError("Needed an iterable type, usually an array but got NoneType")
+        for item in array:
+            local = cls.fromTrakt(item)
+            local[key] = True
+            set.append(local)
+        return set
+
+    #Merging object data
     @staticmethod
     def mergeListStatic(list):
         movie = {}
@@ -107,28 +117,28 @@ class Syncable:
             if cacheN: # if cache null
                 if not leftN and not rightN: # if not all null
                     if leftN: # if left null
-                        changes.append({'dest': 'cache', 'attr': key, 'value': right[key], 'soft': true})# <~
+                        changes.append({'dest': 'cache', 'instance': self, 'subject': key, 'value': right[key], 'soft': true})# <~
                     elif rightN:# if right null
-                        changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': true})# >~
+                        changes.append({'dest': 'cache', 'instance': self, 'subject': key, 'value': left[key], 'soft': true})# >~
                     else:
                         if sidesD:# if sides differ
-                            changes.append(best({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false},{'dest': 'cache', 'attr': key, 'value': right[key], 'soft': false}))# ? fight
+                            changes.append(best({'dest': 'cache', 'instance': self, 'subject': key, 'value': left[key], 'soft': false},{'dest': 'cache', 'instance': self, 'subject': key, 'value': right[key], 'soft': false}))# ? fight
                         else:# else
-                            changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false})# ><
+                            changes.append({'dest': 'cache', 'instance': self, 'subject': key, 'value': left[key], 'soft': false})# ><
             elif not (leftN or cacheN or rightN) and (not (leftD or rightD or sidesD or soft) or ((leftD <> rightD) and soft)):# elif all not null and (all same and not soft) or (only 1 side same and soft)
-                changes.append(best({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false},{'dest': 'cache', 'attr': key, 'value': right[key], 'soft': false}))# ? fight
+                changes.append(best({'dest': 'cache', 'instance': self, 'subject': key, 'value': left[key], 'soft': false},{'dest': 'cache', 'instance': self, 'subject': key, 'value': right[key], 'soft': false}))# ? fight
             elif leftD and not leftN:# elif left differs and isn't null
                 if rightN and soft:# if right null and cache soft
-                    changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': true})# >~
+                    changes.append({'dest': 'cache', 'instance': self, 'subject': key, 'value': left[key], 'soft': true})# >~
                 elif rightN or rightD:# elif right null or right differs
-                    changes.append({'dest': 'right', 'attr': key, 'value': left[key], 'soft': false})# >
+                    changes.append({'dest': 'right', 'instance': self, 'subject': key, 'value': left[key], 'soft': false})# >
                 else:# else (both sides had same change)
-                    changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false})# ><
+                    changes.append({'dest': 'cache', 'instance': self, 'subject': key, 'value': left[key], 'soft': false})# ><
             elif rightD and not rightN:# elif right differs and isn't null
                 if soft:# if soft
-                    changes.append({'dest': 'cache', 'attr': key, 'value': right[key], 'soft': true})# <~
+                    changes.append({'dest': 'cache', 'instance': self, 'subject': key, 'value': right[key], 'soft': true})# <~
                 else:# else
-                    changes.append({'dest': 'left', 'attr': key, 'value': right[key], 'soft': false})# <
+                    changes.append({'dest': 'left', 'instance': self, 'subject': key, 'value': right[key], 'soft': false})# <
             # else
                 # do nothing
 
@@ -248,14 +258,29 @@ class Syncable:
         pprint.pprint(links)
 
     @staticmethod
-    def find(cache, ids):
-        #Search the cache for the correct 
-        pass
-
-    @staticmethod
-    def apply(diff):
-        #Apply diff, redirecmting as appropriete
-        return
+    def find(remoteId=None, localId=None):
+        if remoteId is None and localId is None:
+            raise ValueError("Must provide at least one form of id")
+        if remoteId is not None and 'source' in remoteId and 'remoteid' in remoteId:
+            try:
+                item = RemoteId.selectBy(*remoteId).getOne()
+                return item.get()
+            except SQLObjectNotFound:
+                pass
+            except SQLObjectIntegrityError:
+                Debug("[Syncable] Warning integrity error, multiple results for one set")
+                return None
+        if localId is not None:
+            try:
+                item = LocalId.byLocalid(localId).getOne()
+                return item.get()
+            except SQLObjectNotFound:
+                pass
+            except SQLObjectIntegrityError:
+                Debug("[Syncable] Warning integrity error, multiple results for one set")
+                return None
+        #Not found
+        return None
 
     @staticmethod
     def testLefts():

@@ -3,15 +3,19 @@
 
 import xbmc,xbmcaddon
 from utilities import *
+from identifiable_object import IdentifiableObject
 from movie import Movie
 from show import Show
 from episode import Episode
 from ttl import TTL
-from ids import RemoteId, RemoteMovieId, LocalId, LocalMovieId
+from tc_queue import TCQueue
+from ids import *
 from datetime import timedelta, datetime
 import shelve
 from trakt import Trakt
 from async_tools import Pool, AsyncCall, async
+
+from exceptions import *
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -75,28 +79,44 @@ def init(location=None):
     import sys, os
 
     db_filename = os.path.abspath(xbmc.translatePath(location)+'.db')
-    if os.path.exists(db_filename):
-        os.unlink(db_filename)
+    #if os.path.exists(db_filename):
+    #    os.unlink(db_filename)
     connection_string = 'sqlite:' + db_filename
     connection = connectionForURI(connection_string)
     sqlhub.processConnection = connection
 
-    Movie.createTable()
-    RemoteId.createTable()
-    RemoteMovieId.createTable()
-    #RemoteShowId.createTable()
+    if not IdentifiableObject.tableExists():
+        IdentifiableObject.createTable()
+    if not Movie.tableExists():
+        Movie.createTable()
+    if not RemoteId.tableExists():
+        RemoteId.createTable()
+    if not RemoteMovieId.tableExists():
+        RemoteMovieId.createTable()
+    if not RemoteShowId.tableExists():
+        RemoteShowId.createTable()
     #RemoteEpisodeId.createTable()
-    LocalId.createTable()
-    LocalMovieId.createTable()
-    #LocalShowId.createTable()
+    if not LocalId.tableExists():
+        LocalId.createTable()
+    if not LocalMovieId.tableExists():
+        LocalMovieId.createTable()
+    if not LocalShowId.tableExists():
+        LocalShowId.createTable()
     #LocalEpisodeId.createTable()
-    #Show.createTable()
+    if not Show.tableExists():
+        Show.createTable()
     #Episode.createTable()
-    TTL.createTable()
+    if not TTL.tableExists():
+        TTL.createTable()
+    if not TCQueue.tableExists():
+        TCQueue.createTable()
 
 def close():
     from sqlobject import sqlhub
-    sqlhub.processConnection.close()
+    try:
+        sqlhub.processConnection.close()
+    except AttributeError:
+        Debug("[TraktCache] Closing cache before it was opened")
     
 def _sync(xbmcData = None, traktData = None, cacheData = None):
     Debug("[TraktCache] Syncronising")
@@ -389,106 +409,58 @@ def _updateXbmc(changes, traktData = {}):
                 cacheChanges['episodes'].append(change)
     _updateCache(cacheChanges, traktData)        
 
-def _updateTrakt(newChanges = None, traktData = {}):
-    changeQueue = {}
-    toDebugFile(newChanges, 'trakt')
-    if '_queue' in movies:
-        changeQueue['movies'] = movies['_queue']
-    else:
-        changeQueue['movies'] = []
-    
-    if '_queue' in shows:
-        changeQueue['shows'] = shows['_queue']
-    else:
-        changeQueue['shows'] = []
-        
-    if '_queue' in episodes:
-        changeQueue['episodes'] = episodes['_queue']
-    else:
-        changeQueue['episodes'] = []
-    
-    if newChanges is not None:
-        if 'movies' in newChanges:
-            # Add and new changes to the queue
-            for change in newChanges['movies']:
-                if change not in changeQueue['movies']: # Check that we arn't adding duplicates
-                    changeQueue['movies'].append(change)
-            
-            movies['_queue'] = changeQueue['movies']
-        if 'shows' in newChanges:
-            # Add and new changes to the queue
-            for change in newChanges['shows']:
-                if change not in changeQueue['shows']: # Check that we arn't adding duplicates
-                    changeQueue['shows'].append(change)
-            
-            shows['_queue'] = changeQueue['shows']
-        if 'episodes' in newChanges:
-            # Add and new changes to the queue
-            for change in newChanges['episodes']:
-                if change not in changeQueue['episodes']: # Check that we arn't adding duplicates
-                    changeQueue['episodes'].append(change)
-            
-            episodes['_queue'] = changeQueue['episodes']
-    
-    cacheChanges = {}
-    
-    #Debug("[~] CQ: "+repr(changeQueue))
-    if 'movies' in changeQueue:
-        for item in changeQueue['movies']:
-            Debug("[~] M> "+str(item['subject'])+"\t "+str(item['remoteId'])+"\t "+str(item['value']))
-        cacheChanges['movies'] = []
-        for change in changeQueue['movies']:
+def _updateTrakt():
+    """
+    Update trakt if possible, draws from the cache of updates,
+    any successful updates are removed from the queue and
+    applied to the cache, any that are not successful are left
+    in the queue to be processes when possible
+    """
+
+    queue = TCQueue.selectBy(dest='trakt') # Select all changes for trakt
+    for change in queue.lazyIter(): # Iterate over them, getting them one by one
+        if isinstance(change.instance, Movie): # If this one is a movie
             Debug("[TraktCache] trakt update: "+repr(change))
-            if 'remoteId' in change and 'subject' in change and 'value' in change:
-                if change['subject'] == 'watchlistStatus':
-                    if change['value'] == True:
-                        if Trakt.movieWatchlist([Movie(change['remoteId']).traktise()]) is None:
-                            continue # failed, leave in queue for next time
-                    else:
-                        if Trakt.movieUnwatchlist([Movie(change['remoteId']).traktise()]) is None:
-                            continue # failed, leave in queue for next time
-                elif change['subject'] == 'playcount':
-                    movie = Movie(change['remoteId'])
-                    movie._playcount = change['value']
-                    if (movie._playcount >= 0):
-                        if (movie._playcount == 0):
-                            if Trakt.movieUnseen([movie.traktise()]) is None:
-                                continue # failed, leave in queue for next time
-                        else:
-                            if Trakt.movieSeen([movie.traktise()]) is None:
-                                continue # failed, leave in queue for next time
-                elif change['subject'] == 'libraryStatus':
-                    if change['value'] == True:
-                        if Trakt.movieLibrary([Movie(change['remoteId']).traktise()]) is None:
-                            continue # failed, leave in queue for next time
-                    else:
-                        result = Trakt.movieUnlibrary([Movie(change['remoteId']).traktise()], returnStatus = True)
-                        Debug('[TraktCache] _updateTrakt, libraryStatus, unlibrary, responce: '+str(result))
-                        if 'error' in result: continue # failed, leave in queue for next time
-                elif change['subject'] == 'rating':
-                    movie = Movie(change['remoteId']).traktise()
-                    if Trakt.rateMovie(movie['imdb_id'], movie['title'], movie['year'], change['value'], movie['tmdb_id']) is None:
+            subject = change.subject
+            if subject == 'watchlistStatus':
+                if change.value == True:
+                    if Trakt.movieWatchlist([Movie(change['remoteId']).traktise()]) is None:
                         continue # failed, leave in queue for next time
-                elif change['subject'] in ('title', 'year', 'runtime', 'released', 'tagline', 'overview', 'classification', 'rating', 'trailer', 'poster', 'fanart'):
-                    # ignore, irrelevant, pass on to update the cache
-                    pass
                 else:
-                    # invalid
-                    queue = movies['_queue']
-                    queue.remove(change)
-                    movies['_queue'] = queue
-                    continue
-                # succeeded
-                cacheChanges['movies'].append(change)
-            # either succeeded or invalid
-            queue = movies['_queue']
-            queue.remove(change)
-            movies['_queue'] = queue
-    if 'shows' in changeQueue:
-        for item in changeQueue['shows']:
-            Debug("[~] S> "+str(item['subject'])+"\t "+str(item['remoteId'])+"\t "+str(item['value']))
-        cacheChanges['shows'] = []
-        for change in changeQueue['shows']:
+                    if Trakt.movieUnwatchlist([Movie(change['remoteId']).traktise()]) is None:
+                        continue # failed, leave in queue for next time
+            elif subject == 'playcount':
+                movie = change.instance
+                if (movie._playcount >= 0):
+                    if (movie._playcount == 0):
+                        if Trakt.movieUnseen([movie.traktise()]) is None:
+                            continue # failed, leave in queue for next time
+                    else:
+                        if Trakt.movieSeen([movie.traktise()]) is None:
+                            continue # failed, leave in queue for next time
+                movie._playcount = change.value
+            elif subject == 'libraryStatus':
+                if change.value == True:
+                    if Trakt.movieLibrary([change.instance.traktise()]) is None:
+                        continue # failed, leave in queue for next time
+                else:
+                    result = Trakt.movieUnlibrary([change.instance.traktise()], returnStatus = True)
+                    Debug('[TraktCache] _updateTrakt, libraryStatus, unlibrary, responce: '+str(result))
+                    if 'error' in result: continue # failed, leave in queue for next time
+            elif subject == 'rating':
+                movie = change.instance.traktise()
+                if Trakt.rateMovie(movie['imdb_id'], movie['title'], movie['year'], change['value'], movie['tmdb_id']) is None:
+                    continue # failed, leave in queue for next time
+            elif subject in ('title', 'year', 'runtime', 'released', 'tagline', 'overview', 'classification', 'rating', 'trailer', 'poster', 'fanart'):
+                # ignore, irrelevant, pass on to update the cache
+                pass
+            else:
+                # invalid, destroy change
+                change.destroySelf()
+                continue
+            # succeeded, pass to cache
+            change.dest = 'cache'
+        if isinstance(change.instance, Show): # If this one is a show
             Debug("[TraktCache] trakt update: "+repr(change))
             if 'remoteId' in change and 'subject' in change and 'value' in change:
                 if change['subject'] == 'watchlistStatus':
@@ -836,12 +808,6 @@ def makeChanges(changes, traktOnly = False, xbmcOnly = False):
 # Sync timing
 ##
 
-class TUSyncFailed(Exception):
-    def __init__(self, value=""):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
-
 def trigger():
     Debug("[TraktCache] Starting triggered updates")
     try:
@@ -910,22 +876,16 @@ syncTimes = {'episodelibrary': timedelta(hours=6),
              'friendsactivity': timedelta(hours=3)}
 
 def getActivityUpdates(force=False):
-    checkUserActivity = -1
     userActCount = 0
-    checkFriendsActivity = -1
     friendsActCount = 0
-    
-    initTTL('useractivity')
-    if checkTTL('useractivity') or force:
-        checkUserActivity = getTTL('useractivity')
 
-    initTTL('friendsactivity')
+    if checkTTL('useractivity') or force:
+        timeStamp, userActCount = refreshFromUserActivity(getTTL('useractivity'))
+        setTTL('useractivity', datetime.fromtimestamp(timeStamp))
+
     if checkTTL('friendsactivity') or force:
         checkFriendsActivity = getTTL('friendsactivity')
 
-    if checkUserActivity <> -1:
-        timeStamp, userActCount = refreshFromUserActivity(checkUserActivity)
-        setTTL('useractivity', timeStamp)
     """if checkFriendsActivity <> -1:
         timeStamp, friendsActCount = refreshFromFriendsActivity(checkFriendsActivity)
         expire['friendsactivity'] = timeStamp"""
@@ -933,20 +893,31 @@ def getActivityUpdates(force=False):
         return False
     return True
 
-def initTTL(name):
-    if TTL.select(TTL.q.name==name).count() == 0:
-        TTL(name=name, time=datetime.now())
-
 def getTTL(name):
-    entries = TTL.select(TTL.q.name==name)
-    return entries.getOne(datetime.now()).time
+    entries = TTL.selectBy(name=name)
+    try:
+        expire = entries.getOne()
+        Debug(str(expire.time))
+        return expire.time
+    except SQLObjectNotFound:
+        return datetime.min
+    except SQLObjectIntegrityError:
+        Debug("[TraktCache] getTTL, Warning integiry error, multiple results for one set")
+        return datetime.min
 
 def checkTTL(name):
-    return getTTL(name) < datetime.now()-syncTimes[name]
+    return (getTTL(name)+syncTimes[name]) < datetime.now()
 
 def setTTL(name, time):
-    TTL.select(TTL.q.name==name).getOne().time = time
- 
+    results = TTL.selectBy(name=name)
+    try:
+        results.getOne().time = time
+    except SQLObjectNotFound:
+        Debug("[TTL] Note: expirery not found adding set as new: "+str(name))
+        TTL(name=name, time=time)
+    except SQLObjectIntegrityError:
+        Debug("[TTL] Warning integiry error, multiple results for one set")
+
 def updateSyncTimes(sets = [], remoteIds = []):
     updated = {}
     sets = set(sets)
@@ -957,7 +928,7 @@ def updateSyncTimes(sets = [], remoteIds = []):
             Debug("[TraktCache] Tried to bump update time of unknown update set:" +updatedSet)
             continue
         Debug("[TraktCache] Updating timestamp for "+str(updatedSet))
-        expire[updatedSet] = datetime.now() + syncTimes[updatedSet]
+        setTTL(updatedSet, datetime.now())
     for remoteId in remoteIds:
         expire[remoteId] = datetime.now() + 10*60 # +10mins
 
@@ -991,16 +962,16 @@ def needSyncAtLeast(sets = [], movieIds = [], showIds = [], episodeIds = [], for
         sets = set(sets)
         sets = setPropergateNegative(sets, _setStucture)
         for staleSet in sets:
-            if getTTL(staleSet) or force:
+            if checkTTL(staleSet) or force:
                 refreshSet(staleSet)
         for remoteId in movieIds:
-            if getTTL(remoteId) or force:
+            if checkTTL(remoteId) or force:
                 refreshMovie(remoteId)
         for remoteId in showIds:
-            if getTTL(remoteId) or force:
+            if checkTTL(remoteId) or force:
                 refreshShow(remoteId)
         for remoteId in episodeIds:
-            if getTTL(remoteId) or force:
+            if checkTTL(remoteId) or force:
                 refreshEpisode(remoteId)
     except TraktRequestFailed, e:
         mutate(TUSyncFailed, "Failed trakt.tv request prevented syncing: ")
@@ -1196,7 +1167,10 @@ def newLocalMovie(localId):
 ##
 
 def refreshFromUserActivity(lastTimestamp):
-    responce = Trakt.activityUsers(username, timestamp=lastTimestamp)
+    try:
+        responce = Trakt.activityUsers(username, timestamp=lastTimestamp)
+    except TraktRequestFailed, e:
+        mutate(TUSyncFailed, "Failed trakt.tv request prevented syncing: ")
     changes = {}
     changes['episodes'] = []
     changes['movies'] = []
@@ -1361,147 +1335,78 @@ def getTrendingMovies():
         items.append(localMovie)
     return items
 
-def refreshSet(set, _structure=None):
-    if set in _refresh and _refresh[set] is not None:
-        _refresh[set]()
-        return True
-    else:
-        if _structure is None:
-            _structure = _setStucture
-        if set in _structure:
-            complete = False
-            for subSet in _structure[set]:
-                if refreshSet(subSet, _structure=_structure[set]):
-                    complete = True
-            if complete:
-                updateSyncTimes([set])
-            return complete
+def refreshSet(set, _structure=None, force=False):
+    if force or checkTTL(set):
+        if set in _refresh and _refresh[set] is not None:
+            _refresh[set]()
+            return True
         else:
-            for subSet in _structure:
-                refreshSet(set, _structure=_structure[subSet])
-            if len(_structure.keys())==0:
-                Debug("[TraktCache] No method specified to refresh the set: "+str(set))
-    return False
+            if _structure is None:
+                _structure = _setStucture
+            if set in _structure:
+                complete = False
+                for subSet in _structure[set]:
+                    if refreshSet(subSet, _structure=_structure[set], force=force):
+                        complete = True
+                if complete:
+                    updateSyncTimes([set])
+                return complete
+            else:
+                for subSet in _structure:
+                    refreshSet(set, _structure=_structure[subSet], force=force)
+                if len(_structure.keys())==0:
+                    Debug("[TraktCache] No method specified to refresh the set: "+str(set))
+        return False
+    else:
+        return True
 
-def refreshLibrary():
-    Debug("[TraktCache] Refreshing library")
-    # Send changes to trakt
-    _updateTrakt()
-    
-    # Receive latest according to trakt
-    traktData = _copyTrakt()
-    # Get latest xbmc
-    xbmcData = _copyXbmc()
-    
-    _sync(xbmcData, traktData)  
-    updateSyncTimes(['library'])
+def refreshMovieLibrary():
+    Debug("[TraktCache] Refreshing movie watchlist")
+    traktSet = Movie.setFromTrakt('libraryStatus', Trakt.userLibraryMoviesCollection(username))
+    diff = Movie.diffSet('libraryStatus', None, Movie, traktSet)
+    TCQueue.add(diff)
+    updateSyncTimes(['movielibrary'])
     
 def refreshMovieWatchlist():
     Debug("[TraktCache] Refreshing movie watchlist")
     traktWatchlist = Movie.setFromTrakt('watchlistStatus', Trakt.userWatchlistMovies(username))
     diff = Movie.diffSet('watchlistStatus', None, Movie, traktWatchlist)
-    Movie.apply(diff)
+    TCQueue.add(diff)
     updateSyncTimes(['moviewatchlist'])
     
 def refreshShowWatchlist():
     Debug("[TraktCache] Refreshing show watchlist")
-    traktWatchlist = Trakt.userWatchlistShows(username)
-    watchlist = {}
-    traktData = {}
-    traktData['shows'] = []
-    for show in traktWatchlist:
-        localShow = Show.fromTrakt(show)
-        watchlist[localShow._remoteId] = localShow
-    traktData['shows'] = watchlist
-    _sync(traktData = traktData)
-    for remoteId in shows:
-        if not validRemoteId(remoteId): continue
-        show = shows[remoteId]
-        if show is None:
-            continue
-        if show['_watchlistStatus'] <> (remoteId in watchlist):
-            show['_watchlistStatus'] = not show['_watchlistStatus']
-            shows[show._remoteId] = show
-    updateSyncTimes(['showwatchlist'], watchlist.keys())
+    traktSet = Show.setFromTrakt('watchlistStatus', Trakt.userWatchlistShows(username))
+    diff = Show.diffSet('watchlistStatus', None, Show, traktSet)
+    TCQueue.add(diff)
+    updateSyncTimes(['showwatchlist'])
         
 def refreshEpisodeWatchlist():
     Debug("[TraktCache] Refreshing episode watchlist")
-    traktWatchlist = Trakt.userWatchlistEpisodes(username)
-    watchlist = {}
-    traktData = {}
-    traktData['episodes'] = []
-    for episode in traktWatchlist:
-        localEpisode = Episode.fromTrakt(show)
-        watchlist[localEpisode._remoteId] = localEpisode
-    traktData['episodes'] = watchlist
-    _sync(traktData = traktData)
-    for remoteId in episodes:
-        if not validRemoteId(remoteId): continue
-        episode = episodes[remoteId]
-        if episode is None:
-            continue
-        if episode['_watchlistStatus'] <> (remoteId in watchlist):
-            episode['_watchlistStatus'] = not episode['_watchlistStatus']
-            episodes[episode._remoteId] = episode
-    updateSyncTimes(['episodewatchlist'], watchlist.keys())
+    traktSet = Episode.setFromTrakt('watchlistStatus', Trakt.userWatchlistEpisodes(username))
+    diff = Episode.diffSet('watchlistStatus', None, Episode, traktSet)
+    TCQueue.add(diff)
+    updateSyncTimes(['episodewatchlist'])
     
 def refreshRecommendedMovies():
     Debug("[TraktCache] Refreshing recommended movies")
-    traktItems = Trakt.recommendationsMovies()
-    items = {}
-    traktData = {}
-    traktData['movies'] = []
-    for movie in traktItems:
-        localMovie = Movie.fromTrakt(movie)
-        items[localMovie._remoteId] = localMovie
-    traktData['movies'] = items
-    _sync(traktData = traktData)
-    for remoteId in movies:
-        if not validRemoteId(remoteId): continue
-        movie = movies[remoteId]
-        if movie is None:
-            continue
-        status = remoteId in items;
-        if movie['_recommendedStatus'] <> True and status:
-            movie['_recommendedStatus'] = True
-            movies[movie._remoteId] = movie
-        elif movie['_recommendedStatus'] <> False and not status:
-            movie['_recommendedStatus'] = False
-            movies[movie._remoteId] = movie
-            
-    updateSyncTimes(['movierecommended'], items.keys())
+    traktSet = Movie.setFromTrakt('recommendedStatus', Trakt.recommendationsMovies())
+    diff = Movie.diffSet('recommendedStatus', None, Movie, traktSet)
+    TCQueue.add(diff)
+    updateSyncTimes(['movierecommended'])
     
 def refreshRecommendedShows():
     Debug("[TraktCache] Refreshing recommended shows")
-    traktItems = Trakt.recommendationsShows()
-    items = {}
-    traktData = {}
-    traktData['shows'] = []
-    for show in traktItems:
-        localShow = Show.fromTrakt(show)
-        items[localShow._remoteId] = localShow
-    traktData['shows'] = items
-    _sync(traktData = traktData)
-    for remoteId in shows:
-        if not validRemoteId(remoteId): continue
-        show = shows[remoteId]
-        if show is None:
-            continue
-        status = remoteId in items;
-        if show['_recommendedStatus'] <> True and status:
-            show['_recommendedStatus'] = True
-            shows[show._remoteId] = show
-        elif show['_recommendedStatus'] <> False and not status:
-            show['_recommendedStatus'] = False
-            shows[show._remoteId] = show
-            
-    updateSyncTimes(['showrecommended'], items.keys())
+    traktSet = Movie.setFromTrakt('recommendedStatus', Trakt.recommendationsShows())
+    diff = Show.diffSet('recommendedStatus', None, Show, traktSet)
+    TCQueue.add(diff)
+    updateSyncTimes(['showrecommended'])
     
 _refresh = {}
 _refresh['all'] = None
-_refresh['library'] = refreshLibrary
+_refresh['library'] = None
 _refresh['movieall'] = None
-_refresh['movielibrary'] = None
+_refresh['movielibrary'] = refreshMovieLibrary
 _refresh['episodelibrary'] = None
 _refresh['moviewatchlist'] = refreshMovieWatchlist
 _refresh['movierecommended'] = refreshRecommendedMovies

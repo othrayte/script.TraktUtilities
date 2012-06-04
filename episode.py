@@ -2,10 +2,16 @@
 # 
 
 import xbmc,xbmcaddon
+
+from sqlobject import *
+
 from utilities import *
 import trakt_cache
-from show import Show
 from trakt import Trakt
+from show import Show
+from ids import RemoteEpisodeId, LocalEpisodeId
+from syncable import Syncable
+from identifiable_object import IdentifiableObject
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -18,34 +24,25 @@ __settings__ = xbmcaddon.Addon( "script.TraktUtilities" )
 __language__ = __settings__.getLocalizedString
 
 # Caches all information between the add-on and the web based trakt api
-class Episode(object):
+class Episode(IdentifiableObject, Syncable):
     
-    def __init__(self, remoteId, static=False):
-        if remoteId is None:
-            raise ValueError("Must provide the id for the episode")
-        self._remoteId = str(remoteId)
-        self._showRemoteId = str(remoteId)[:str(remoteId).rfind('@')]
-        self._season = int(str(remoteId)[str(remoteId).rfind('@')+1:str(remoteId).rfind('x')])
-        self._episode = int(str(remoteId)[str(remoteId).rfind('x')+1:])
-        if not static:
-            if self.reread():
-                return
-                
-        self._title = None
-        self._overview = None
-        self._firstAired = None
-        self._playcount = None
-        self._rating = None
-        self._watchlistStatus = None
-        self._libraryStatus = None
-        self._traktDbStatus = None
+    def __init__(self, remoteId, static=False):                
+        _title = StringCol(default=None)
+        _overview = StringCol(default=None)
+        _firstAired = DateTimeCol(default=None)
+        _playcount = IntCol(default=None)
+        _rating = IntCol(default=None)
+        _watchlistStatus = BoolCol(default=None)
+        _libraryStatus = BoolCol(default=None)
+        _traktDbStatus = BoolCol(default=None)
         
-        self._screen = None
+        _screen = StringCol(default=None)
         
-        self._bestBefore = {}
-        self._static = static
-            
+        _bestBefore = PickleCol(default={})
+
+        __unsafeProperties = ('_title',  '_overview', '_firstAired', '_playcount', '_rating', '_watchlistStatus', '_libraryStatus', '_traktDbStatus', '_screen')
         
+    
     def __repr__(self):
         return "<"+str(self._remoteId)+" - "+str(self._season)+'x'+str(self._episode)+" "+repr(self._title)+","+str(self._libraryStatus)+","+str(self._screen)+","+repr(self._overview)+">"
         
