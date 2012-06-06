@@ -3,16 +3,17 @@
 class Syncable:
     
     def __iter__(self):
-        for key in __unsafeProperties:
+        for key in self.keys():
             yield key
 
     def __contains__(self, item):
-        return item in __unsafeProperties
-    
-    def keys():
-        return __unsafeProperties
+        return item in self.keys()
 
-         #Merging object data
+    @classmethod
+    def keys(cls):
+        return cls._unsafeProperties
+
+    #Merging object data
     @staticmethod
     def mergeListStatic(list):
         movie = {}
@@ -49,8 +50,16 @@ class Syncable:
     #Merging objects
     def merge(self, other):
         self |= other
+        return self
+
+    def mergeList(self, others):
+        for other in others:
+            self |= other
+        return self
 
     def __ior__(self, other):
+        if self == other:
+            return
         for key in other.keys():
             if key in self:
                 if key in ('_rating', '_playcount'):
@@ -95,46 +104,50 @@ class Syncable:
         changes = []
         if keys is None:
             keys = self.keys();
+        if left is None: left = {}
+        if right is None: right = {}
         for key in keys:
             cacheV = self[key]
-            cacheN = cacheV is Null
-            leftN = left[key] is Null
-            rightN = right[key] is Null
-            soft = key in _bestBefore
-            leftD = left[key] <> cacheV
-            rightD = right[key] <> cacheV
-            sidesD = left[key] <> right[key]
+            cacheN = cacheV is None
+            print key in left
+            leftN = not key in left or left[key] is None
+            rightN = not key in right or right[key] is None
+            soft = key in self._bestBefore
+            leftD = leftN or left[key] <> cacheV
+            rightD = rightN or right[key] <> cacheV
+            sidesD = (leftN or rightN) or left[key] <> right[key]
             if cacheN: # if cache null
-                if not leftN and not rightN: # if not all null
+                if not (leftN and rightN): # if not all null
                     if leftN: # if left null
-                        changes.append({'dest': 'cache', 'attr': key, 'value': right[key], 'soft': true})# <~
+                        changes.append({'dest': 'cache', 'attr': key, 'value': right[key], 'soft': True})# <~
                     elif rightN:# if right null
-                        changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': true})# >~
+                        changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': True})# >~
                     else:
                         if sidesD:# if sides differ
-                            changes.append(best({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false},{'dest': 'cache', 'attr': key, 'value': right[key], 'soft': false}))# ? fight
+                            changes.append(best({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': False},{'dest': 'cache', 'attr': key, 'value': right[key], 'soft': False}))# ? fight
                         else:# else
-                            changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false})# ><
+                            changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': False})# ><
             elif not (leftN or cacheN or rightN) and (not (leftD or rightD or sidesD or soft) or ((leftD <> rightD) and soft)):# elif all not null and (all same and not soft) or (only 1 side same and soft)
-                changes.append(best({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false},{'dest': 'cache', 'attr': key, 'value': right[key], 'soft': false}))# ? fight
+                changes.append(Syncable.best({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': False},{'dest': 'cache', 'attr': key, 'value': right[key], 'soft': False}))# ? fight
             elif leftD and not leftN:# elif left differs and isn't null
                 if rightN and soft:# if right null and cache soft
-                    changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': true})# >~
+                    changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': True})# >~
                 elif rightN or rightD:# elif right null or right differs
-                    changes.append({'dest': 'right', 'attr': key, 'value': left[key], 'soft': false})# >
+                    changes.append({'dest': 'right', 'attr': key, 'value': left[key], 'soft': False})# >
                 else:# else (both sides had same change)
-                    changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': false})# ><
+                    changes.append({'dest': 'cache', 'attr': key, 'value': left[key], 'soft': False})# ><
             elif rightD and not rightN:# elif right differs and isn't null
                 if soft:# if soft
-                    changes.append({'dest': 'cache', 'attr': key, 'value': right[key], 'soft': true})# <~
+                    changes.append({'dest': 'cache', 'attr': key, 'value': right[key], 'soft': True})# <~
                 else:# else
-                    changes.append({'dest': 'left', 'attr': key, 'value': right[key], 'soft': false})# <
+                    changes.append({'dest': 'left', 'attr': key, 'value': right[key], 'soft': False})# <
             # else
                 # do nothing
+        return changes
 
     """
     Three way compare logic
-    LCR /  ~  (soft = false /, true ~)
+    LCR /  ~  (soft = False /, True ~)
     ??? -  -  (L = left, C = cache, R = right)
     ??1 <~ -  (? input (L or R) = unknown)
     ?1? -  -  (? input C = cache empty)
@@ -152,35 +165,32 @@ class Syncable:
     123 ?  ?
     """
 
+    @staticmethod
+    def best(change1, change2):
+        if change1['attr'] <> change2['attr']:
+            raise RuntimeException
+        if change1['value'] >= change2['value']:
+            return change1
+        else:
+            return change2
+
+
     # Set syncing
-    """@staticmethod
-    def diffSet(key, lefts, type, rights):
-        cur = {}
-        leftNew = []
-        rightNew = []
-        for left in lefts:
-            id = type.find(left)
-            if id is None:
-                leftNew.append(left)
-            else:
-                cur[id] = (left, None)
-        for right in rights:
-            id = type.find(right)
-            if id is None:
-                rightNew.append(right)
-            else:
-                if id in cur:
-                    cur[id] = (cur[id][0], right)
-                else:
-                    cur[id] = (None, right)
-        type.get
-        for left in leftNew:
-            if 
-        diff()
+    @staticmethod
+    def diffSet(keys, lefts, type, rights):
+        links = Syncable.link(lefts, rights)
+        links = Syncable.linkCache(links, type)
+        import pprint
+        pprint.pprint(links)
+        changes = []
+        for link in links:
+            print link
+            changes.append(link[1].diff(link[0], link[2], keys))
+        print changes
         return changes
 
     @staticmethod
-    def diffSetPositive(key, left, cache, right):
+    def diffSetPositive(keys, left, cache, right):
         changes = self.diffSet(key, left, right)
         posChanges = []
         for change in changes:
@@ -189,7 +199,7 @@ class Syncable:
                     posChanges.append(change)
             except KeyError:
                 pass
-        return posChanges"""
+        return posChanges
 
     @staticmethod
     def link(lefts, rights):
@@ -198,14 +208,13 @@ class Syncable:
         links = {}
         for left in lefts:
             linkId += 1
-            links[linkId] = [left, None]
+            links[linkId] = [left, None, None]
             try:
                 for source in left['remoteIds'].keys():
                     if not source in foundId:
                         foundId[source] = {}
                     try:
                         id = left['remoteIds'][source]
-                        print id
                         lId = foundId[source][id]
                         cur = links[lId][0]
                         left = Syncable.mergeStatic(cur, left)
@@ -217,21 +226,20 @@ class Syncable:
                 pass
         for right in rights:
             linkId += 1
-            links[linkId] = [None, right]
+            links[linkId] = [None, None, right]
             try:
                 for source in right['remoteIds'].keys():
                     if not source in foundId:
                         foundId[source] = {}
                     try:
                         id = right['remoteIds'][source]
-                        print id
                         lId = foundId[source][id]
-                        cur = links[lId][1]
+                        cur = links[lId][2]
                         links[linkId][0] = links[lId][0]
                         if cur is None:
-                            links[linkId][1] = right
+                            links[linkId][2] = right
                         else:
-                            links[linkId][1] = Syncable.mergeStatic(cur, right)
+                            links[linkId][2] = Syncable.mergeStatic(cur, right)
                         del links[lId]
                     except KeyError:
                         pass
@@ -243,11 +251,38 @@ class Syncable:
                                 foundId[source][id] = linkId
             except KeyError:
                 pass
+
         import pprint
         pprint.pprint(links)
+        returnLinks = []
+        for linkId in links:
+            returnLinks.append(links[linkId])
+        return returnLinks
 
     @staticmethod
-    def find(cache, ids):
+    def linkCache(links, type):
+        outLinks = []
+        for link in links:
+            matched = []
+            try:
+                matched += type.find(link[0]['remoteIds'])
+            except TypeError, KeyError:
+                pass
+            try:
+                matched += type.find(link[2]['remoteIds'])
+            except TypeError, KeyError:
+                pass
+            if len(matched) > 0:
+                first = matched.pop()
+                first.mergeList(matched)
+                link[1] = first     
+            else:
+                link[1] = TestType.create({}, None)
+            outLinks.append(link)
+        return outLinks;
+
+    @staticmethod
+    def find(ids):
         #Search the cache for the correct 
         pass
 
@@ -256,23 +291,23 @@ class Syncable:
         return [
             {
                 'remoteIds': {'tmdb': 53223},
-                'title': "A"
+                '_title': "A"
             },
             {
                 'remoteIds': {'imdb': 31524, 'tmdb': 53223},
-                'title': "A"
+                '_title': "A"
             },
             {
                 'remoteIds': {'imdb': 679, 'tmdb': 8547},
-                'title': "C"
+                '_title': "C"
             },
             {
               'remoteIds': {'tmdb': 1235},
-                'title': "D"
+                '_title': "D"
             },
             {
               'remoteIds': {'tmdb': 23728},
-                'title': "E"
+                '_title': "E"
             }
         ]
 
@@ -281,26 +316,81 @@ class Syncable:
         return [
             {
                 'remoteIds': {'tmdb': 53223},
-                'title': "A"
+                '_title': "A"
             },
             {
                 'remoteIds': {'imdb': 31524},
-                'title': "A"
+                '_title': "A"
             },
             {
                 'remoteIds': {'tmdb': 8547},
-                'title': "C"
+                '_title': "C"
             },
             {
               'remoteIds': {'imdb': 2473, 'tmdb': 1235},
-                'title': "D"
+                '_title': "D"
             },
             {
               'remoteIds': {'imdb': 5732},
-                'title': "F"
+                '_title': "F"
             }
         ]
 
     @staticmethod
     def test():
-        return Syncable.link(Syncable.testLefts(), Syncable.testRights())
+        Syncable.link(Syncable.testLefts(), Syncable.testRights())
+        TestType.create({'tmdb': 1235}, "D")
+        TestType.create({'tmdb': 8547}, "C")
+        TestType.create({'imdb': 5732}, "F")
+        Syncable.diffSet(None, Syncable.testLefts(), TestType,Syncable.testRights())
+
+testItems = []
+
+class TestType(Syncable):
+    _unsafeProperties = ('_title',)
+
+    @staticmethod
+    def find(ids):
+        #Search the cache for the correct 
+        matches = []
+        for item in testItems:
+            if item.matches(ids):
+                matches.append(item)
+        print matches
+        return matches
+    
+    _title = ""
+    _remoteIds = {}
+
+    _bestBefore = {}
+            
+    def __repr__(self):
+        return "<"+repr(self._title)+">"
+        
+    def __str__(self):
+        return unicode(self._title)
+    
+    def __getitem__(self, index):
+        if index == "_title": return self._title
+    
+    def __setitem__(self, index, value):
+        if index == "_title": self._title = value
+
+    def matches(self, ids):
+        for source in ids:
+            if source in self._remoteIds:
+                if self._remoteIds[source] == ids[source]:
+                    return True
+        return False
+
+    @staticmethod
+    def create(remoteIds, title):
+        obj = TestType()
+        obj._remoteIds = remoteIds
+        obj._title = title
+
+        testItems.append(obj)
+        return obj
+
+    def destroySelf(self):
+        testItems.remove(self)
