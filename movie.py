@@ -8,9 +8,10 @@ from sqlobject import *
 from utilities import *
 import trakt_cache
 from trakt import Trakt
-from ids import RemoteMovieId, LocalMovieId
+from ids import RemoteId, LocalId
 from syncable import Syncable
 from identifiable_object import IdentifiableObject
+from tc_queue import TCQueue
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -41,12 +42,15 @@ class Movie(IdentifiableObject, Syncable):
     _poster = StringCol(default=None)
     _fanart = StringCol(default=None)
 
-    _bestBefore = PickleCol(default={})
+    _lastUpdate = PickleCol(default={})
 
-    __unsafeProperties = ('_title',  '_year', '_runtime', '_released', '_tagline', '_overview', '_classification', '_playcount', '_rating', '_watchlistStatus',  '_recommendedStatus', '_libraryStatus', '_traktDbStatus', '_trailer', '_poster', '_fanart')
+
+    _syncToXBMC = set(['_playcount'])
+    _syncToTrakt = set(['_playcount', '_rating', '_watchlistStatus', '_libraryStatus', '_traktDbStatus'])
+    _unsafeProperties = set(['_title',  '_year', '_runtime', '_released', '_tagline', '_overview', '_classification', '_playcount', '_rating', '_watchlistStatus',  '_recommendedStatus', '_libraryStatus', '_traktDbStatus', '_trailer', '_poster', '_fanart'])
             
     def __repr__(self):
-        return "<"+repr(self._title)+" ("+str(self._year)+") - "+str(self._remoteId)+","+str(self._libraryStatus)+","+str(self._poster)+","+str(self._runtime)+","+repr(self._tagline)+">"
+        return "<"+repr(self['_title'])+" ("+str(self['_year'])+") - "+str(self['_remoteId'])+","+str(self['_libraryStatus'])+","+str(self['_poster'])+","+str(self['_runtime'])+","+repr(self['_tagline'])+">"
         
     def __str__(self):
         return unicode(self._title)+" ("+str(self._year)+")"
@@ -299,36 +303,36 @@ class Movie(IdentifiableObject, Syncable):
     def fromTrakt(movie, static = True):
         if movie is None: return None
         local = {}
-        local['remoteIds'] = {}
+        local['_remoteIds'] = {}
         if 'imdb_id' in movie:
-            local['remoteIds']['imdb'] = movie['imdb_id']
+            local['_remoteIds']['imdb'] = movie['imdb_id']
         if 'tmdb_id' in movie:
-            local['remoteIds']['tmdb'] = movie['tmdb_id']
+            local['_remoteIds']['tmdb'] = movie['tmdb_id']
 
-        local['title'] = movie['title']
-        local['year'] = movie['year']
+        local['_title'] = movie['title']
+        local['_year'] = movie['year']
         if 'plays' in movie:
-            local['playcount'] = movie['plays']
+            local['_playcount'] = movie['plays']
         if 'in_watchlist' in movie:
-            local['watchlistStatus'] = movie['in_watchlist']
+            local['_watchlistStatus'] = movie['in_watchlist']
         if 'in_collection' in movie:
-            local['libraryStatus'] = movie['in_collection']
+            local['_libraryStatus'] = movie['in_collection']
         if 'images' in movie and 'poster' in movie['images']:
-            local['poster'] = movie['images']['poster']
+            local['_poster'] = movie['images']['poster']
         if 'images' in movie and 'fanart' in movie['images']:
-            local['fanart'] = movie['images']['fanart']
+            local['_fanart'] = movie['images']['fanart']
         if 'runtime' in movie:
-            local['runtime'] = movie['runtime']
+            local['_runtime'] = movie['runtime']
         if 'released' in movie:
-            local['released'] = movie['released']
+            local['_released'] = movie['released']
         if 'tagline' in movie:
-            local['tagline'] = movie['tagline']
+            local['_tagline'] = movie['tagline']
         if 'overview' in movie:
-            local['overview'] = movie['overview']
+            local['_overview'] = movie['overview']
         if 'certification' in movie:
-            local['classification'] = movie['certification']
+            local['_classification'] = movie['certification']
         if 'trailer' in movie:
-            local['trailer'] = movie['trailer']
+            local['_trailer'] = movie['trailer']
             
         return local
      
@@ -368,6 +372,62 @@ class Movie(IdentifiableObject, Syncable):
         local._runtime = movie['runtime']
         return local
     
+    def updateTrakt(subject):
+        changes = list(TCQueue.selectBy(dest='trakt', subject=subject))
+        if subject in Movie._syncToTrakt:
+            try:
+                if subject == 'watchlistStatus':
+                    Trakt.movieWatchlist([change.instance.traktise() for change in changes if change.value == True])
+                    Trakt.movieUnwatchlist([change.instance.traktise() for change in changes if change.value == False])
+                elif subject == 'playcount':
+                    Trakt.movieSeen([change.instance.traktise() for change in changes if change.value > 0])
+                    Trakt.movieUnseen([change.instance.traktise() for change in changes if change.value == 0])
+                elif subject == 'libraryStatus':
+                    Trakt.movieLibrary([change.instance.traktise() for change in changes if change.value == True])
+                    Trakt.movieUnlibrary([change.instance.traktise() for change in changes if change.value == False])
+                elif subject == 'rating':
+                    Trakt.rateMovies(map(lambda change: change.instance.traktise(), changes))
+                else:
+                    raise NotImplementedError("This type, '"+subject+"', can't yet be synced back to trakt, maybe you could fix this.")
+            except TraktRequestFailed:
+                mutate(TraktUpdateFailed, "Failed trakt.tv request prevented sending of info to trakt, this info will be resent next time: ")
+        # Succeeded or ignored pass to cache
+        changes = changes.lazyColumns(True) # Don't need to get al the info out again
+        for change in changes:
+            change.dest = 'cache'
+
+    @staticmethod
+    def updateCache(subject):
+        if subject in Movie._unsafeProperties:
+            changes = list(TCQueue.selectBy(dest='cache', subject=subject))
+            for change in changes:
+                change.instance['_'+subject] = change.value
+                if change.soft == False:
+                    change.instance._lastUpdate[subject] = change.time
+        # Remove all, including any ones that could not be implemented
+        TCQueue.deleteBy(dest='cache', subject=subject)
+
+    @staticmethod
+    def updateXBMC(subject):
+        changes = TCQueue.selectBy(dest='trakt', subject=subject)
+        if subject in Movie._syncToXBMC:
+            for change in changes:
+                succeeded = True
+                for id in change.instance._localIds:
+                    if subject == 'playcount':
+                        if setXBMCMoviePlaycount(id.localid, change.value) is None:
+                            succeeded = False# failed
+                if succeeded:
+                    # Succeeded pass to cache
+                    changes = changes.lazyColumns(True) # Don't need to get all the info out again
+                    for change in changes:
+                        change.dest = 'cache'
+        else:
+            # Ignored pass to cache
+            changes = changes.lazyColumns(True) # Don't need to get all the info out again
+            for change in changes:
+                change.dest = 'cache'
+
     @staticmethod
     def evolveId(idString):
         if idString.find('tt') == 0:

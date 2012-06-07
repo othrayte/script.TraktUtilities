@@ -9,9 +9,10 @@ from utilities import *
 import trakt_cache
 from trakt import Trakt
 from show import Show
-from ids import RemoteEpisodeId, LocalEpisodeId
+from ids import RemoteId, LocalId
 from syncable import Syncable
 from identifiable_object import IdentifiableObject
+from tc_queue import TCQueue
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -25,29 +26,33 @@ __language__ = __settings__.getLocalizedString
 
 # Caches all information between the add-on and the web based trakt api
 class Episode(IdentifiableObject, Syncable):
-    
-    def __init__(self, remoteId, static=False):                
-        _title = StringCol(default=None)
-        _overview = StringCol(default=None)
-        _firstAired = DateTimeCol(default=None)
-        _playcount = IntCol(default=None)
-        _rating = IntCol(default=None)
-        _watchlistStatus = BoolCol(default=None)
-        _libraryStatus = BoolCol(default=None)
-        _traktDbStatus = BoolCol(default=None)
-        
-        _screen = StringCol(default=None)
-        
-        _bestBefore = PickleCol(default={})
+    _show = ForeignKey('Show')
+    _season = IntCol(notNull=True)
+    _episode = IntCol(notNull=True)
 
-        __unsafeProperties = ('_title',  '_overview', '_firstAired', '_playcount', '_rating', '_watchlistStatus', '_libraryStatus', '_traktDbStatus', '_screen')
+    _title = StringCol(default=None)
+    _overview = StringCol(default=None)
+    _firstAired = DateTimeCol(default=None)
+    _playcount = IntCol(default=None)
+    _rating = IntCol(default=None)
+    _watchlistStatus = BoolCol(default=None)
+    _libraryStatus = BoolCol(default=None)
+    _traktDbStatus = BoolCol(default=None)
+    
+    _screen = StringCol(default=None)
+    
+    _lastUpdate = PickleCol(default={})
+
+    _syncToXBMC = set(['_playcount'])
+    _syncToTrakt = set(['_playcount', '_rating', '_watchlistStatus', '_libraryStatus'])
+    _unsafeProperties = set(['_title',  '_overview', '_firstAired', '_playcount', '_rating', '_watchlistStatus', '_libraryStatus', '_traktDbStatus', '_screen'])
         
     
     def __repr__(self):
-        return "<"+str(self._remoteId)+" - "+str(self._season)+'x'+str(self._episode)+" "+repr(self._title)+","+str(self._libraryStatus)+","+str(self._screen)+","+repr(self._overview)+">"
+        return "<"+str(self['remoteId'])+" - "+str(self['season'])+'x'+str(self['episode'])+" "+repr(self['title'])+","+str(self['libraryStatus'])+","+str(self['screen'])+","+repr(self['overview'])+">"
         
     def __str__(self):
-        return str(self._remoteId)+" - "+str(self._season)+'x'+str(self._episode)+" "+unicode(self._title)
+        return str(self['remoteId'])+" - "+str(self['season'])+'x'+str(self['episode'])+" "+unicode(self['title'])
     
     def __getitem__(self, index):
         if index == "_title": return self._title
@@ -277,7 +282,66 @@ class Episode(IdentifiableObject, Syncable):
         if 'playcount' in episode: local._playcount = episode['playcount']
         if 'rating' in episode: local._rating = episode['rating']
         return local
-     
+
+    @staticmethod
+    def updateTrakt(subject):
+        query = TCQueue.selectBy(dest='trakt', subject=subject)
+        changes = list(query)
+        if subject in Episode._syncToTrakt:
+            from sqlobject.sqlbuilder import *
+            #select = Select(Ep['instance', 'AVG(salary)'], staticTables=['employees'],
+            try:
+                if subject == 'watchlistStatus':
+                    Trakt.Watchlist([change.instance.traktise() for change in changes if change.value == True])
+                    Trakt.movieUnwatchlist([change.instance.traktise() for change in changes if change.value == False])
+                elif subject == 'playcount':
+                    Trakt.movieSeen([change.instance.traktise() for change in changes if change.value > 0])
+                    Trakt.movieUnseen([change.instance.traktise() for change in changes if change.value == 0])
+                elif subject == 'libraryStatus':
+                    Trakt.movieLibrary([change.instance.traktise() for change in changes if change.value == True])
+                    Trakt.movieUnlibrary([change.instance.traktise() for change in changes if change.value == False])
+                elif subject == 'rating':
+                    Trakt.rateMovies(map(lambda change: change.instance.traktise(), changes))
+                else:
+                    raise NotImplementedError("This type, '"+subject+"', can't yet be synced back to trakt, maybe you could fix this.")
+            except TraktRequestFailed:
+                mutate(TraktUpdateFailed, "Failed trakt.tv request prevented sending of info to trakt, this info will be resent next time: ")
+        # Succeeded or ignored pass to cache
+        changes = query.lazyColumns(True) # Don't need to get al the info out again
+        for change in changes:
+            change.dest = 'cache'
+
+    @staticmethod
+    def updateCache(subject):
+        if subject in Episode._unsafeProperties:
+            changes = list(TCQueue.selectBy(dest='cache', subject=subject))
+            for change in changes:
+                change.instance['_'+subject] = change.value
+                if change.soft == False:
+                    change.instance._lastUpdate[subject] = change.time
+        # Remove all, including any ones that could not be implemented
+        TCQueue.deleteBy(dest='cache', subject=subject)
+
+    @staticmethod
+    def updateXBMC(subject):
+        changes = TCQueue.selectBy(dest='trakt', subject=subject)
+        if subject in Episode._syncToXBMC:
+            for change in changes:
+                succeeded = True
+                for id in change.instance._localIds:
+                    if subject == 'playcount':
+                        if setXBMCEpisodePlaycount(id.localid, change.value) is None:
+                            succeeded = False# failed
+                if succeeded:
+                    # Succeeded pass to cache
+                    changes = changes.lazyColumns(True) # Don't need to get all the info out again
+                    for change in changes:
+                        change.dest = 'cache'
+        else:
+            # Ignored pass to cache
+            changes = changes.lazyColumns(True) # Don't need to get all the info out again
+            for change in changes:
+                change.dest = 'cache'
     @staticmethod
     def evolveId(idString, season, episode):
         if idString.find('tt') == 0:

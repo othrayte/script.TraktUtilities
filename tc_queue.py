@@ -2,12 +2,15 @@ from sqlobject import *
 from identifiable_object import IdentifiableObject
 
 from utilities import Debug
+from datetime import datetime
 
 class TCQueue(SQLObject):
 	dest = StringCol()
-	instance = SingleJoin('IdentifiableObject')
+	type = StringCol()
+	instance = ForeignKey('IdentifiableObject', notNull=True)
 	subject = StringCol()
 	value = PickleCol()
+	time = DateTimeCol()
 	soft = BoolCol()
 
 	@staticmethod
@@ -18,15 +21,19 @@ class TCQueue(SQLObject):
 
 		try:
 			for item in args:
-				try:
-					if not exists(*item):
-						TCQueue(*item)
-				except KeyError:
-					continue
+				for change in item:
+					try:
+						Debug("[~]"+repr(change))
+						if not TCQueue.exists(**change):
+							change['type'] = change['instance'].__class__.__name__.lower()
+							change['time'] = datetime.now()
+							TCQueue(**change)
+					except KeyError:
+						continue
 		except:
 			raise
 
-
+	@staticmethod
 	def exists(dest, instance, subject, value, soft):
 		if not soft and TCQueue.select(
 			AND(
@@ -36,13 +43,13 @@ class TCQueue(SQLObject):
 					AND(
 						TCQueue.q.subject == subject,
 						AND(
-							TCQueue.q.value == value, TCQueue.q.soft == true
+							TCQueue.q.value == value, TCQueue.q.soft == True
 							)
 						)
 					)
 				)
 			).count() == 0:
-			return false
+			return False
 		elif soft and TCQueue.select(
 			AND(
 				TCQueue.q.dest == dest,
@@ -55,5 +62,5 @@ class TCQueue(SQLObject):
 					)
 				)
 			).count() == 0:
-			return false
-		return true
+			return False
+		return True

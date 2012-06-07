@@ -8,9 +8,10 @@ from sqlobject import *
 from utilities import Debug
 import trakt_cache
 from trakt import Trakt
-from ids import RemoteShowId, LocalShowId
+from ids import RemoteId, LocalId
 from syncable import Syncable
 from identifiable_object import IdentifiableObject
+from tc_queue import TCQueue
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -26,6 +27,9 @@ __language__ = __settings__.getLocalizedString
 class Show(IdentifiableObject, Syncable):
     _title = StringCol(default=None)
     _year = IntCol(default=None)
+
+    _episodes = MultipleJoin('Episode', joinColumn='show_id')
+
     _firstAired = IntCol(default=None)
     _country = StringCol(default=None)
     _overview = StringCol(default=None)
@@ -43,18 +47,18 @@ class Show(IdentifiableObject, Syncable):
     _fanart = StringCol(default=None)
     _banner = StringCol(default=None)
     
-    _episodes = MultipleJoin('Episode')
-    
-    _bestBefore = PickleCol(default={})
+    _lastUpdate = PickleCol(default={})
 
-    __unsafeProperties = ('_title',  '_year', '_firstAired', '_country', '_overview', '_runtime', '_network', '_airDay', '_airTime', '_classification', '_rating', '_watchlistStatus',  '_recommendedStatus', '_traktDbStatus', '_trailer', '_poster', '_fanart', '_banner')
+    _syncToXBMC = set([])
+    _syncToTrakt = set(['_rating', '_watchlistStatus'])
+    _unsafeProperties = set(['_title',  '_year', '_firstAired', '_country', '_overview', '_runtime', '_network', '_airDay', '_airTime', '_classification', '_rating', '_watchlistStatus',  '_recommendedStatus', '_traktDbStatus', '_trailer', '_poster', '_fanart', '_banner'])
     
     
     def __repr__(self):
-        return "<"+repr(self._title)+" ("+str(self._year)+") - "+str(self._remoteId)+","+str(self._poster)+","+str(self._runtime)+">"
+        return "<"+repr(self['_title'])+" ("+str(self['_year'])+") - "+str(self['_remoteId'])+","+str(self['_poster'])+","+str(self['_runtime'])+">"
         
     def __str__(self):
-        return unicode(self._title)+" ("+str(self._year)+")"
+        return unicode(self['_title'])+" ("+str(self['_year'])+")"
         
     def __getitem__(self, index):
         if index == "_title": return self._title
@@ -295,11 +299,11 @@ class Show(IdentifiableObject, Syncable):
     def fromTrakt(show, static = True):
         if show is None: return None
         local = {}
-        local['remoteIds'] = {}
+        local['_remoteIds'] = {}
         if 'tvdb_id' in show:
-            local['remoteIds']['tvdb'] = show['tvdb_id']
+            local['_remoteIds']['tvdb'] = show['tvdb_id']
         if 'imdb_id' in show:
-            local['remoteIds']['imdb'] = show['imdb_id']
+            local['_remoteIds']['imdb'] = show['imdb_id']
 
         local['title'] = show['title']
         local['year'] = show['year']
@@ -364,6 +368,56 @@ class Show(IdentifiableObject, Syncable):
         if 'runtime' in show: local._runtime = show['runtime']
         return local
     
+    @staticmethod
+    def updateTrakt(subject):
+        changes = list(TCQueue.selectBy(dest='trakt', subject=subject))
+        if subject in Show._syncToTrakt:
+            try:
+                if subject == 'watchlistStatus':
+                    Trakt.showWatchlist([change.instance.traktise() for change in changes if change.value == True])
+                    Trakt.showUnwatchlist([change.instance.traktise() for change in changes if change.value == False])
+                elif subject == 'rating':
+                    Trakt.rateShows(map(lambda change: change.instance.traktise(), changes))
+                else:
+                    raise NotImplementedError("This type, '"+subject+"', can't yet be synced back to trakt, maybe you could fix this.")
+            except TraktRequestFailed:
+                mutate(TraktUpdateFailed, "Failed trakt.tv request prevented sending of info to trakt, this info will be resent next time: ")
+        # Succeeded or ignored pass to cache
+        changes = changes.lazyColumns(True) # Don't need to get al the info out again
+        for change in changes:
+            change.dest = 'cache'
+
+    @staticmethod
+    def updateCache(subject):
+        if subject in Show._unsafeProperties:
+            changes = list(TCQueue.selectBy(dest='cache', subject=subject))
+            for change in changes:
+                change.instance['_'+subject] = change.value
+                if change.soft == False:
+                    change.instance._lastUpdate[subject] = change.time
+        # Remove all, including any ones that could not be implemented
+        TCQueue.deleteBy(dest='cache', subject=subject)
+
+    @staticmethod
+    def updateXBMC(subject):
+        changes = TCQueue.selectBy(dest='trakt', subject=subject)
+        if subject in Show._syncToXBMC:
+            for change in changes:
+                succeeded = True
+                for id in change.instance._localIds:
+                    # At some point we will do some updating here
+                    succeeded = False# failed
+                if succeeded:
+                    # Succeeded pass to cache
+                    changes = changes.lazyColumns(True) # Don't need to get all the info out again
+                    for change in changes:
+                        change.dest = 'cache'
+        else:
+            # Ignored pass to cache
+            changes = changes.lazyColumns(True) # Don't need to get all the info out again
+            for change in changes:
+                change.dest = 'cache'
+
     @staticmethod
     def evolveId(idString):
         if idString.find('tt') == 0:

@@ -57,7 +57,6 @@ def switchBoard():
             Debug("[Default] Requested window: "+str(windowName))
             if windowName in ('watchlistMovies', 'watchlistShows', 'trendingMovies', 'trendingShows', 'recommendedMovies', 'recommendedShows'):
                 rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'JSONRPC.NotifyAll','params':{'sender': 'TraktUtilities', 'message': 'TraktUtilities.View', 'data':{'window':windowName}}, 'id': 1})
-                Debug("[~] "+repr(rpccmd))
                 result = xbmc.executeJSONRPC(rpccmd)
                 result = json.loads(result)
             continue
@@ -158,7 +157,6 @@ def stopTraktUtilities():
 def testing():
     Trakt.testAll()
     """movie = Movie("dummy=1234455")
-    Debug("[~] rating: "+str(movie.rating))
     movie.rating = "help"
     movie.setRating("help")
     Debug('[TraktCache] _updateTrakt, libraryStatus, unlibrary, responce: '+str(result))

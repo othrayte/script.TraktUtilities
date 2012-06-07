@@ -35,7 +35,7 @@ class Pool():
         self.closing = False
     
     def x(self, func, *args, **kwargs):
-        return AsyncCall(func, self, *args, **kwargs)
+        return AsyncCall(func, pool=self, *args, **kwargs)
     
     def map(self, func, vals):
         results = []
@@ -61,6 +61,7 @@ class Pool():
         self.closing = True
         self.event.notifyAll()
         self.event.release()
+        return self
 
     def weld(self):
         self.event.acquire()
