@@ -594,10 +594,11 @@ def setTTL(name, time):
     except SQLObjectIntegrityError:
         Debug("[TTL] Warning integiry error, multiple results for one set")
 
-def updateSyncTimes(sets = [], remoteIds = []):
+def updateSyncTimes(sets = [], remoteIds = [], propergate=True):
     updated = {}
     sets = set(sets)
-    sets, _ = setPropergatePositive(sets, _setStucture)
+    if propergate:
+        sets, _ = setPropergatePositive(sets, _setStucture)
     
     for updatedSet in sets:
         if updatedSet not in syncTimes:
@@ -1015,25 +1016,25 @@ def refreshSet(set, _structure=None, force=False):
         else:
             if _structure is None:
                 _structure = _setStucture
-            if set in _structure:
-                complete = False
+            if set in _structure and len(_structure[set]) > 0:
+                complete = True
                 for subSet in _structure[set]:
-                    if refreshSet(subSet, _structure=_structure[set], force=force):
-                        complete = True
+                    if refreshSet(subSet, _structure=_structure[set], force=force) == False:
+                        complete = False
                 if complete:
-                    updateSyncTimes([set])
+                    updateSyncTimes([set], propergate=False)
                 return complete
             else:
                 for subSet in _structure:
                     refreshSet(set, _structure=_structure[subSet], force=force)
                 if len(_structure.keys())==0:
-                    Debug("[TraktCache] No method specified to refresh the set: "+str(set))
+                    Debug("[TraktCache] WARNING: No method specified to refresh the set: "+str(set))
         return False
     else:
         return True
 
 def refreshMovieLibrary():
-    Debug("[TraktCache] Refreshing movie watchlist")
+    Debug("[TraktCache] Refreshing movie library")
     traktSet = Movie.setFromTrakt('_libraryStatus', Trakt.userLibraryMoviesCollection(username))
     diff = Movie.diffSet('_libraryStatus', None, traktSet)
     TCQueue.add(diff)
