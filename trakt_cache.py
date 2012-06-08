@@ -371,8 +371,6 @@ def _copyTraktMovies():
     traktMovies = ~traktMovies
     watchlistMovies = ~watchlistMovies
     
-    Debug("[~] :"+str(len(traktMovies)))
-    
     if traktMovies is None: return movies
     watchlistMovies = traktMovieListByImdbID(watchlistMovies)
     for movie in traktMovies:
@@ -1071,6 +1069,7 @@ def refreshMovieLibrary():
     traktSet = Movie.setFromTrakt('libraryStatus', Trakt.userLibraryMoviesCollection(username))
     diff = Movie.diffSet('libraryStatus', None, traktSet)
     TCQueue.add(diff)
+    updateCache()
     updateSyncTimes(['movielibrary'])
     
 def refreshMovieWatchlist():
@@ -1078,6 +1077,7 @@ def refreshMovieWatchlist():
     traktSet = Movie.setFromTrakt('watchlistStatus', Trakt.userWatchlistMovies(username))
     diff = Movie.diffSet('watchlistStatus', None, traktSet)
     TCQueue.add(diff)
+    updateCache()
     updateSyncTimes(['moviewatchlist'])
     
 def refreshShowWatchlist():
@@ -1085,6 +1085,7 @@ def refreshShowWatchlist():
     traktSet = Show.setFromTrakt('watchlistStatus', Trakt.userWatchlistShows(username))
     diff = Show.diffSet('watchlistStatus', None, traktSet)
     TCQueue.add(diff)
+    updateCache()
     updateSyncTimes(['showwatchlist'])
         
 def refreshEpisodeWatchlist():
@@ -1092,6 +1093,7 @@ def refreshEpisodeWatchlist():
     traktSet = Episode.setFromTrakt('watchlistStatus', Trakt.userWatchlistEpisodes(username))
     diff = Episode.diffSet('watchlistStatus', None, traktSet)
     TCQueue.add(diff)
+    updateCache()
     updateSyncTimes(['episodewatchlist'])
     
 def refreshRecommendedMovies():
@@ -1099,6 +1101,7 @@ def refreshRecommendedMovies():
     traktSet = Movie.setFromTrakt('recommendedStatus', Trakt.recommendationsMovies())
     diff = Movie.diffSet('recommendedStatus', None, traktSet)
     TCQueue.add(diff)
+    updateCache()
     updateSyncTimes(['movierecommended'])
     
 def refreshRecommendedShows():
@@ -1106,6 +1109,7 @@ def refreshRecommendedShows():
     traktSet = Movie.setFromTrakt('recommendedStatus', Trakt.recommendationsShows())
     diff = Show.diffSet('recommendedStatus', None, traktSet)
     TCQueue.add(diff)
+    updateCache()
     updateSyncTimes(['showrecommended'])
     
 _refresh = {}

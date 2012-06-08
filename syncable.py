@@ -297,7 +297,6 @@ class Syncable:
     @classmethod
     def find(cls, instance):
         matched = search(instance)
-        Debug("[~]1a, "+len(matched))
         if len(matched) > 0:
             first = matched.pop()
             first.mergeList(matched)

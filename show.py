@@ -337,7 +337,6 @@ class Show(IdentifiableObject, Syncable):
     def fromXbmc(show, static = True):
         if show is None: return None
         if 'imdbnumber' not in show or show['imdbnumber'] is None or show['imdbnumber'].strip() == "":
-            Debug("[~] "+repr(show))
             remoteId = trakt_cache.getShowRemoteId(show['showid'])
             if remoteId is not None:
                 local = Show(remoteId, static)

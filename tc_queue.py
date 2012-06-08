@@ -23,7 +23,6 @@ class TCQueue(SQLObject):
 			for item in args:
 				for change in item:
 					try:
-						Debug("[~]"+repr(change))
 						if not TCQueue.exists(**change):
 							change['type'] = change['instance'].__class__.__name__.lower()
 							change['time'] = datetime.now()
