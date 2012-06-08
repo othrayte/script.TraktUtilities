@@ -1,8 +1,18 @@
+# -*- coding: utf-8 -*-
+# 
+
 from sqlobject import *
 from identifiable_object import IdentifiableObject
 
 from utilities import Debug
 from datetime import datetime
+
+__author__ = "Ralph-Gordon Paul, Adrian Cowan"
+__credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
+__license__ = "GPL"
+__maintainer__ = "Ralph-Gordon Paul"
+__email__ = "ralph-gordon.paul@uni-duesseldorf.de"
+__status__ = "Production"
 
 class TCQueue(SQLObject):
 	dest = StringCol()

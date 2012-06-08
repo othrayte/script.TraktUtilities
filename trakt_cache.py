@@ -1036,6 +1036,7 @@ def refreshSet(set, _structure=None, force=False):
 def refreshMovieLibrary():
     Debug("[TraktCache] Refreshing movie library")
     traktSet = Movie.setFromTrakt('_libraryStatus', Trakt.userLibraryMoviesCollection(username))
+    xbmcSet = Movie.setFromXBMC('_libraryStatus', XBMC.)
     diff = Movie.diffSet('_libraryStatus', None, traktSet)
     TCQueue.add(diff)
     updateCache()
