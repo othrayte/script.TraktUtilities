@@ -286,6 +286,7 @@ class Syncable:
                 pass
             if len(matched) > 0:
                 first = matched.pop()
+                print repr(matched)
                 first.mergeList(matched)
                 link[1] = first     
             else:
@@ -313,7 +314,7 @@ class Syncable:
         if '_localIds' in instance:
             for localId in instance['_localIds']:
                 results += LocalId.selectBy(localId)
-        results = [lambda result:result.get() for result in results]
+        results = [result.get() for result in results]
         return results
 
     @classmethod

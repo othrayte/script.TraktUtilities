@@ -159,7 +159,7 @@ def testing():
     """movie = Movie("dummy=1234455")
     movie.rating = "help"
     movie.setRating("help")
-    Debug('[TraktCache] _updateTrakt, libraryStatus, unlibrary, responce: '+str(result))
+    Debug("[TraktCache] _updateTrakt, libraryStatus, unlibrary, responce: "+str(result))
     Debug(str(trakt_cache.getMovieWatchlist()))"""
     xbmcgui.Dialog().ok("Trakt Utilities, TESTS", "Success")
     

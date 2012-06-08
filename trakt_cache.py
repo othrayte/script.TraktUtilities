@@ -608,7 +608,6 @@ def getTTL(name):
     entries = TTL.selectBy(name=name)
     try:
         expire = entries.getOne()
-        Debug(str(expire.time))
         return expire.time
     except SQLObjectNotFound:
         return datetime.min
