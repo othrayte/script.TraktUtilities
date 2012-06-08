@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 #
 
+from datetime import datetime
+
 import xbmc,xbmcaddon
 
 from sqlobject import *
@@ -25,12 +27,12 @@ __language__ = __settings__.getLocalizedString
 
 # Caches all information between the add-on and the web based trakt api
 class Movie(IdentifiableObject, Syncable):    
-    _title = StringCol(default=None)
+    _title = UnicodeCol(default=None)
     _year = IntCol(default=None)
     _runtime = IntCol(default=None)
     _released = DateTimeCol(default=None)
-    _tagline = StringCol(default=None)
-    _overview = StringCol(default=None)
+    _tagline = UnicodeCol(default=None)
+    _overview = UnicodeCol(default=None)
     _classification = StringCol(default=None)
     _playcount = IntCol(default=None)
     _rating = IntCol(default=None)
@@ -39,8 +41,10 @@ class Movie(IdentifiableObject, Syncable):
     _libraryStatus = BoolCol(default=None)
     _traktDbStatus = BoolCol(default=None)
 
-    _poster = StringCol(default=None)
-    _fanart = StringCol(default=None)
+    _poster = UnicodeCol(default=None)
+    _fanart = UnicodeCol(default=None)
+
+    _trailer = UnicodeCol(default=None)
 
     _lastUpdate = PickleCol(default={})
 
@@ -225,7 +229,7 @@ class Movie(IdentifiableObject, Syncable):
         return self._rating
     @rating.setter
     def rating(self, value):
-        trakt_cache.makeChanges({'movies': [{'remoteId': self._remoteId, 'subject': 'rating', 'value': value}]}, traktOnly = True)
+        trakt_cache.makeChanges({'movies': [{'remoteId': self._remoteId, 'subject': '_rating', 'value': value}]}, traktOnly = True)
         self.refresh()
         
     @property
@@ -235,7 +239,7 @@ class Movie(IdentifiableObject, Syncable):
         return self._playcount
     @playcount.setter
     def playcount(self, value):
-        trakt_cache.makeChanges({'movies': [{'remoteId': self._remoteId, 'subject': 'playcount', 'value': value}]}, traktOnly = True)
+        trakt_cache.makeChanges({'movies': [{'remoteId': self._remoteId, 'subject': '_playcount', 'value': value}]}, traktOnly = True)
         self.refresh()
         
     @property
@@ -256,7 +260,7 @@ class Movie(IdentifiableObject, Syncable):
         return self._watchlistStatus
     @watchlistStatus.setter
     def watchlistStatus(self, value):
-        trakt_cache.makeChanges({'movies': [{'remoteId': self._remoteId, 'subject': 'watchlistStatus', 'value': value}]}, traktOnly = True)
+        trakt_cache.makeChanges({'movies': [{'remoteId': self._remoteId, 'subject': '_watchlistStatus', 'value': value}]}, traktOnly = True)
         self.refresh()
         
     @property
@@ -324,7 +328,7 @@ class Movie(IdentifiableObject, Syncable):
         if 'runtime' in movie:
             local['_runtime'] = movie['runtime']
         if 'released' in movie:
-            local['_released'] = movie['released']
+            local['_released'] = datetime.fromtimestamp(movie['released'])
         if 'tagline' in movie:
             local['_tagline'] = movie['tagline']
         if 'overview' in movie:
@@ -376,16 +380,16 @@ class Movie(IdentifiableObject, Syncable):
         changes = list(TCQueue.selectBy(dest='trakt', subject=subject))
         if subject in Movie._syncToTrakt:
             try:
-                if subject == 'watchlistStatus':
+                if subject == '_watchlistStatus':
                     Trakt.movieWatchlist([change.instance.traktise() for change in changes if change.value == True])
                     Trakt.movieUnwatchlist([change.instance.traktise() for change in changes if change.value == False])
-                elif subject == 'playcount':
+                elif subject == '_playcount':
                     Trakt.movieSeen([change.instance.traktise() for change in changes if change.value > 0])
                     Trakt.movieUnseen([change.instance.traktise() for change in changes if change.value == 0])
-                elif subject == 'libraryStatus':
+                elif subject == '_libraryStatus':
                     Trakt.movieLibrary([change.instance.traktise() for change in changes if change.value == True])
                     Trakt.movieUnlibrary([change.instance.traktise() for change in changes if change.value == False])
-                elif subject == 'rating':
+                elif subject == '_rating':
                     Trakt.rateMovies(map(lambda change: change.instance.traktise(), changes))
                 else:
                     raise NotImplementedError("This type, '"+subject+"', can't yet be synced back to trakt, maybe you could fix this.")
@@ -401,7 +405,7 @@ class Movie(IdentifiableObject, Syncable):
         if subject in Movie._unsafeProperties:
             changes = list(TCQueue.selectBy(dest='cache', subject=subject))
             for change in changes:
-                change.instance['_'+subject] = change.value
+                change.instance[subject] = change.value
                 if change.soft == False:
                     change.instance._lastUpdate[subject] = change.time
         # Remove all, including any ones that could not be implemented

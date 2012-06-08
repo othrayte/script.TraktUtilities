@@ -37,16 +37,16 @@ class Syncable:
         for key in b.keys():
             if key in out:
                 if key in ('rating', 'playcount', '_remoteIds', 'localIds'):
-                    if key == 'rating':
+                    if key == '_rating':
                         out['rating'] = max(a['rating'], b['rating'])
-                    elif key == 'playcount':
+                    elif key == '_playcount':
                         out['playcount'] = max(a['playcount'], b['playcount'])
                     elif key == '_remoteIds':
                         providers = b[key].keys()
                         for provider in providers:
                             if provider not in a[key] or a[key][provider] <> b[key][provider]:
                                 a[key][provider] = b[key][provider]
-                    elif key == 'localIds':
+                    elif key == '_localIds':
                         for id in b[key]:
                             if id not in a[key]:
                                 a[key].append(id)
@@ -193,10 +193,7 @@ class Syncable:
         #pprint.pprint(links)
         changes = []
         for link in links:
-            if isinstance(key, basestring):
-                changes.append(link[1].diff(link[0], link[2], [key]))
-            else:
-                changes.append(link[1].diff(link[0], link[2], key))
+            changes.append(link[1].diff(link[0], link[2]))
         return changes
 
     @staticmethod

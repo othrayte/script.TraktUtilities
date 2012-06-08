@@ -66,7 +66,7 @@ def notification( header, message, time=5000, icon=__settings__.getAddonInfo( "i
 global tuThreads
 try:
     print tuThreads
-    Debug("[~] Error: tuThreads already exists")
+    raise Exception("Error: tuThreads already exists")
 except:
     pass  
 tuThreads = Pool(10)
@@ -205,7 +205,6 @@ def searchGoogleForImdbId(query):
             if (result['visibleUrl'] == "www.imdb.com"):
                 if (re.match("http[:]//www[.]imdb[.]com/title/", result['url'])):
                     imdbid = re.search('/(tt[0-9]{7})/', result['url']).group(1)
-                    Debug("[~] "+str(imdbid))
                     return imdbid;
     except (ValueError, TypeError):
         Debug("googleQuery: Bad JSON responce: "+raw)

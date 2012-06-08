@@ -32,7 +32,6 @@ class SafeShelf:
         SafeShelf.__readCount[name] = 0
     
     def __enter__(self):
-        #Debug("[~] Requested "+str(self.name)+","+str(self.writeable))
         if self.writeable:
             if self.name not in SafeShelf.__shelf:
                 SafeShelf.__shelf[self.name] = None
@@ -60,4 +59,3 @@ class SafeShelf:
                 SafeShelf.__readCount[self.name] -= 1
                 if SafeShelf.__readCount[self.name] == 0:
                     SafeShelf.__readMutex[self.name].release()
-        #Debug("[~] released "+str(self.name)+","+str(self.writeable))

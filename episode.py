@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # 
 
+from datetime import datetime
+
 import xbmc,xbmcaddon
 
 from sqlobject import *
@@ -30,8 +32,8 @@ class Episode(IdentifiableObject, Syncable):
     _season = IntCol(notNull=True)
     _episode = IntCol(notNull=True)
 
-    _title = StringCol(default=None)
-    _overview = StringCol(default=None)
+    _title = UnicodeCol(default=None)
+    _overview = UnicodeCol(default=None)
     _firstAired = DateTimeCol(default=None)
     _playcount = IntCol(default=None)
     _rating = IntCol(default=None)
@@ -39,7 +41,7 @@ class Episode(IdentifiableObject, Syncable):
     _libraryStatus = BoolCol(default=None)
     _traktDbStatus = BoolCol(default=None)
     
-    _screen = StringCol(default=None)
+    _screen = UnicodeCol(default=None)
     
     _lastUpdate = PickleCol(default={})
 
@@ -168,7 +170,7 @@ class Episode(IdentifiableObject, Syncable):
         return self._rating
     @rating.setter
     def rating(self, value):
-        trakt_cache.makeChanges({'episodes': [{'remoteId': self._remoteId, 'subject': 'rating', 'value': value}]}, traktOnly = True)
+        trakt_cache.makeChanges({'episodes': [{'remoteId': self._remoteId, 'subject': '_rating', 'value': value}]}, traktOnly = True)
         
     @property
     def playcount(self):
@@ -260,7 +262,7 @@ class Episode(IdentifiableObject, Syncable):
         if 'images' in episode and 'screen' in episode['images']:
             local._screen = episode['images']['screen']
         if 'firstAired' in episode:
-            local._runtime = episode['first_aired']
+            local._runtime = datetime.fromtimestamp(episode['first_aired'])
         if 'overview' in episode:
             local._overview = episode['overview']
             
@@ -291,16 +293,16 @@ class Episode(IdentifiableObject, Syncable):
             from sqlobject.sqlbuilder import *
             #select = Select(Ep['instance', 'AVG(salary)'], staticTables=['employees'],
             try:
-                if subject == 'watchlistStatus':
+                if subject == '_watchlistStatus':
                     Trakt.Watchlist([change.instance.traktise() for change in changes if change.value == True])
                     Trakt.movieUnwatchlist([change.instance.traktise() for change in changes if change.value == False])
-                elif subject == 'playcount':
+                elif subject == '_playcount':
                     Trakt.movieSeen([change.instance.traktise() for change in changes if change.value > 0])
                     Trakt.movieUnseen([change.instance.traktise() for change in changes if change.value == 0])
-                elif subject == 'libraryStatus':
+                elif subject == '_libraryStatus':
                     Trakt.movieLibrary([change.instance.traktise() for change in changes if change.value == True])
                     Trakt.movieUnlibrary([change.instance.traktise() for change in changes if change.value == False])
-                elif subject == 'rating':
+                elif subject == '_rating':
                     Trakt.rateMovies(map(lambda change: change.instance.traktise(), changes))
                 else:
                     raise NotImplementedError("This type, '"+subject+"', can't yet be synced back to trakt, maybe you could fix this.")
@@ -316,7 +318,7 @@ class Episode(IdentifiableObject, Syncable):
         if subject in Episode._unsafeProperties:
             changes = list(TCQueue.selectBy(dest='cache', subject=subject))
             for change in changes:
-                change.instance['_'+subject] = change.value
+                change.instance[subject] = change.value
                 if change.soft == False:
                     change.instance._lastUpdate[subject] = change.time
         # Remove all, including any ones that could not be implemented

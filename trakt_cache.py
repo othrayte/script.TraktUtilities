@@ -111,7 +111,6 @@ def close():
     
 def _sync(xbmcData = None, traktData = None, cacheData = None):
     Debug("[TraktCache] Syncronising")
-    #Debug("[~] "+repr(xbmcData)+"\n\n"+repr(traktData)+"\n\n"+repr(cacheData))
     
     if xbmcData is not None and ('movies' not in xbmcData or xbmcData['movies'] is None): xbmcData['movies'] = {}
     if traktData is not None and ('movies' not in traktData or traktData['movies'] is None): traktData['movies'] = {}
@@ -139,28 +138,12 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
             traktData['episodes'] = {isolatedId: traktData['episodes'][isolatedId]}
         else:
             traktData['episodes'] = {}"""
-            
-    # Find and list all changes
-    #if xbmcData is not None:
-        #for item in xbmcData['movies']:
-        #    if item['remoteId'] == isolatedId:
-        #        if item is not None: Debug("[~] X0"+repr(xbmcData['movies'][item]))
-    #if traktData is not None:
-        #for item in traktData['movies']:
-        #    if item['remoteId'] == isolatedId:
-        #        if item is not None: Debug("[~] T0"+repr(traktData['movies'][item]))
     
     # Find and list all changes
     if traktData is not None:
         xbmcChanges = _syncCompare(traktData, cache = cacheData)
-        #for item in xbmcChanges['movies']:
-        #    if item['remoteId'] == isolatedId:
-        #        Debug("[~] X1"+repr(item))
     if xbmcData is not None:
         traktChanges = _syncCompare(xbmcData, xbmc = True, cache = cacheData)
-        #for item in traktChanges['movies']:
-        #    if item['remoteId'] == isolatedId:
-        #        Debug("[~] T1"+repr(item))
         
     # Find unanimous changes and direct them to the cache
     cacheChanges = {}
@@ -179,8 +162,6 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
                         removeListT.append(traktChange)
                         removeListX.append(xbmcChange)
                         if (xbmcChange['value'] <> traktChange['value']):
-                            #Debug("[~] t"+repr(traktChange))
-                            #Debug("[~] x"+repr(xbmcChange))
                             winingChange = traktChange
                             if 'weak' in winingChange: winingChange['weak'] = False
                             if xbmcChange['subject'] in ('playcount'):
@@ -221,18 +202,6 @@ def _sync(xbmcData = None, traktData = None, cacheData = None):
             for item in moveList:
                 traktChanges[type].remove(item)
                 cacheChanges[type].append(item)
-    
-    #if traktData is not None:
-    #    for item in xbmcChanges['movies']:
-    #        if item['remoteId'] == isolatedId:
-    #            Debug("[~] X"+repr(item))
-    #if xbmcData is not None:
-    #    for item in traktChanges['movies']:
-    #        if item['remoteId'] == isolatedId:
-    #            Debug("[~] T"+repr(item))
-    #for item in cacheChanges['movies']:
-    #    if item['remoteId'] == isolatedId:
-    #        Debug("[~] C"+repr(item))
                     
     
     Debug("[TraktCache] Syncing - Applying changes")
@@ -509,7 +478,6 @@ def _episodesDifferent(newEpisodes, oldEpisodes):
     return False
     
 def makeChanges(changes, traktOnly = False, xbmcOnly = False):
-    Debug("[~] Made changes: "+repr(changes))
     if not traktOnly: _updateXbmc(changes)
     if not xbmcOnly: _updateTrakt(changes)
 
@@ -886,32 +854,32 @@ def refreshFromUserActivity(lastTimestamp):
                 continue #ignore
             if event['action'] == 'scrobble':
                 episode = Episode.fromTrakt(event['show'], event['episode'])
-                TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': 'playcount', 'value': episode['playcount'], 'soft': False}])
+                TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': '_playcount', 'value': episode['playcount'], 'soft': False}])
             if event['action'] == 'checkin':
                 continue #ignore
             if event['action'] == 'seen':
                 for traktEpisode in event['episodes']:
                     episode = Episode.fromTrakt(event['show'], event['episode'])
-                    TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': 'playcount', 'value': episode['playcount'], 'soft': False}])
+                    TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': '_playcount', 'value': episode['playcount'], 'soft': False}])
             if event['action'] == 'collection':
                 for traktEpisode in event['episodes']:
                     episode = Episode.fromTrakt(event['show'], traktEpisode)
-                    TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': 'libraryStatus', 'value': episode['libraryStatus'], 'soft': False}])
+                    TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': '_libraryStatus', 'value': episode['libraryStatus'], 'soft': False}])
             if event['action'] == 'rating':
                 episode = Episode.fromTrakt(event['show'], event['episode'])
-                TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': 'rating', 'value': episode['rating'], 'soft': False}])
+                TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': '_rating', 'value': episode['rating'], 'soft': False}])
             if event['action'] == 'watchlist':
                 episode = Episode.fromTrakt(event['show'], event['episode'])
-                TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': 'watchlistStatus', 'value': episode['watchlistStatus'], 'soft': False}])
+                TCQueue.add([{'instance': Episode.find(episode), 'dest': 'xbmc', 'subject': '_watchlistStatus', 'value': episode['watchlistStatus'], 'soft': False}])
             if event['action'] == 'shout':
                 continue #ignore
         if event['type'] == 'show':
             if event['action'] == 'rating':
                 show = Show.fromTrakt(event['show'])
-                TCQueue.add([{'instance': Show.find(show), 'dest': 'xbmc', 'subject': 'rating', 'value': episode['rating'], 'soft': False}])
+                TCQueue.add([{'instance': Show.find(show), 'dest': 'xbmc', 'subject': '_rating', 'value': episode['rating'], 'soft': False}])
             if event['action'] == 'watchlist':
                 show = Show.fromTrakt(event['show'])
-                TCQueue.add([{'instance': Show.find(show), 'dest': 'xbmc', 'subject': 'watchlistStatus', 'value': episode['watchlistStatus'], 'soft': False}])
+                TCQueue.add([{'instance': Show.find(show), 'dest': 'xbmc', 'subject': '_watchlistStatus', 'value': episode['watchlistStatus'], 'soft': False}])
             if event['action'] == 'shout':
                 continue #ignore
         if event['type'] == 'movie':
@@ -919,21 +887,21 @@ def refreshFromUserActivity(lastTimestamp):
                 continue #ignore
             if event['action'] == 'scrobble':
                 movie = Movie.fromTrakt(event['movie'])
-                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': 'playcount', 'value': episode['playcount'], 'soft': False}])
+                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': '_playcount', 'value': episode['playcount'], 'soft': False}])
             if event['action'] == 'checkin':
                 continue #ignore
             if event['action'] == 'seen':
                 movie = Movie.fromTrakt(event['movie'])
-                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': 'playcount', 'value': episode['playcount'], 'soft': False}])
+                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': '_playcount', 'value': episode['playcount'], 'soft': False}])
             if event['action'] == 'collection':
                 movie = Movie.fromTrakt(event['movie'])
-                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': 'libraryStatus', 'value': episode['libraryStatus'], 'soft': False}])
+                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': '_libraryStatus', 'value': episode['libraryStatus'], 'soft': False}])
             if event['action'] == 'rating':
                 movie = Movie.fromTrakt(event['movie'])
-                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': 'rating', 'value': episode['rating'], 'soft': False}])
+                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': '_rating', 'value': episode['rating'], 'soft': False}])
             if event['action'] == 'watchlist':
                 movie = Movie.fromTrakt(event['movie'])
-                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': 'watchlistStatus', 'value': episode['watchlistStatus'], 'soft': False}])
+                TCQueue.add([{'instance': Movie.find(movie), 'dest': 'xbmc', 'subject': '_watchlistStatus', 'value': episode['watchlistStatus'], 'soft': False}])
             if event['action'] == 'shout':
                 continue #ignore
     
@@ -1066,48 +1034,48 @@ def refreshSet(set, _structure=None, force=False):
 
 def refreshMovieLibrary():
     Debug("[TraktCache] Refreshing movie watchlist")
-    traktSet = Movie.setFromTrakt('libraryStatus', Trakt.userLibraryMoviesCollection(username))
-    diff = Movie.diffSet('libraryStatus', None, traktSet)
+    traktSet = Movie.setFromTrakt('_libraryStatus', Trakt.userLibraryMoviesCollection(username))
+    diff = Movie.diffSet('_libraryStatus', None, traktSet)
     TCQueue.add(diff)
     updateCache()
     updateSyncTimes(['movielibrary'])
     
 def refreshMovieWatchlist():
     Debug("[TraktCache] Refreshing movie watchlist")
-    traktSet = Movie.setFromTrakt('watchlistStatus', Trakt.userWatchlistMovies(username))
-    diff = Movie.diffSet('watchlistStatus', None, traktSet)
+    traktSet = Movie.setFromTrakt('_watchlistStatus', Trakt.userWatchlistMovies(username))
+    diff = Movie.diffSet('_watchlistStatus', None, traktSet)
     TCQueue.add(diff)
     updateCache()
     updateSyncTimes(['moviewatchlist'])
     
 def refreshShowWatchlist():
     Debug("[TraktCache] Refreshing show watchlist")
-    traktSet = Show.setFromTrakt('watchlistStatus', Trakt.userWatchlistShows(username))
-    diff = Show.diffSet('watchlistStatus', None, traktSet)
+    traktSet = Show.setFromTrakt('_watchlistStatus', Trakt.userWatchlistShows(username))
+    diff = Show.diffSet('_watchlistStatus', None, traktSet)
     TCQueue.add(diff)
     updateCache()
     updateSyncTimes(['showwatchlist'])
         
 def refreshEpisodeWatchlist():
     Debug("[TraktCache] Refreshing episode watchlist")
-    traktSet = Episode.setFromTrakt('watchlistStatus', Trakt.userWatchlistEpisodes(username))
-    diff = Episode.diffSet('watchlistStatus', None, traktSet)
+    traktSet = Episode.setFromTrakt('_watchlistStatus', Trakt.userWatchlistEpisodes(username))
+    diff = Episode.diffSet('_watchlistStatus', None, traktSet)
     TCQueue.add(diff)
     updateCache()
     updateSyncTimes(['episodewatchlist'])
     
 def refreshRecommendedMovies():
     Debug("[TraktCache] Refreshing recommended movies")
-    traktSet = Movie.setFromTrakt('recommendedStatus', Trakt.recommendationsMovies())
-    diff = Movie.diffSet('recommendedStatus', None, traktSet)
+    traktSet = Movie.setFromTrakt('_recommendedStatus', Trakt.recommendationsMovies())
+    diff = Movie.diffSet('_recommendedStatus', None, traktSet)
     TCQueue.add(diff)
     updateCache()
     updateSyncTimes(['movierecommended'])
     
 def refreshRecommendedShows():
     Debug("[TraktCache] Refreshing recommended shows")
-    traktSet = Movie.setFromTrakt('recommendedStatus', Trakt.recommendationsShows())
-    diff = Show.diffSet('recommendedStatus', None, traktSet)
+    traktSet = Movie.setFromTrakt('_recommendedStatus', Trakt.recommendationsShows())
+    diff = Show.diffSet('_recommendedStatus', None, traktSet)
     TCQueue.add(diff)
     updateCache()
     updateSyncTimes(['showrecommended'])

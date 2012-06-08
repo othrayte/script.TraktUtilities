@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # 
 
+from datetime import datetime
+
 import xbmc,xbmcaddon
 
 from sqlobject import *
@@ -25,16 +27,16 @@ __language__ = __settings__.getLocalizedString
 
 # Caches all information between the add-on and the web based trakt api
 class Show(IdentifiableObject, Syncable):
-    _title = StringCol(default=None)
+    _title = UnicodeCol(default=None)
     _year = IntCol(default=None)
 
     _episodes = MultipleJoin('Episode', joinColumn='show_id')
 
-    _firstAired = IntCol(default=None)
-    _country = StringCol(default=None)
-    _overview = StringCol(default=None)
+    _firstAired = DateTimeCol(default=None)
+    _country = UnicodeCol(default=None)
+    _overview = UnicodeCol(default=None)
     _runtime = IntCol(default=None)
-    _network = StringCol(default=None)
+    _network = UnicodeCol(default=None)
     _airDay = StringCol(default=None)
     _airTime = IntCol(default=None)
     _classification = StringCol(default=None)
@@ -43,9 +45,9 @@ class Show(IdentifiableObject, Syncable):
     _recommendedStatus = BoolCol(default=None)
     _traktDbStatus = BoolCol(default=None)
     
-    _poster = StringCol(default=None)
-    _fanart = StringCol(default=None)
-    _banner = StringCol(default=None)
+    _poster = UnicodeCol(default=None)
+    _fanart = UnicodeCol(default=None)
+    _banner = UnicodeCol(default=None)
     
     _lastUpdate = PickleCol(default={})
 
@@ -240,7 +242,7 @@ class Show(IdentifiableObject, Syncable):
         return self._rating
     @rating.setter
     def rating(self, value):
-        trakt_cache.makeChanges({'shows': [{'remoteId': self._remoteId, 'subject': 'rating', 'value': value}]}, traktOnly = True)
+        trakt_cache.makeChanges({'shows': [{'remoteId': self._remoteId, 'subject': '_rating', 'value': value}]}, traktOnly = True)
         self.refresh()
         
     @property
@@ -255,7 +257,7 @@ class Show(IdentifiableObject, Syncable):
         return self._watchlistStatus
     @watchlistStatus.setter
     def watchlistStatus(self, value):
-        trakt_cache.makeChanges({'shows': [{'remoteId': self._remoteId, 'subject': 'watchlistStatus', 'value': value}]}, traktOnly = True)
+        trakt_cache.makeChanges({'shows': [{'remoteId': self._remoteId, 'subject': '_watchlistStatus', 'value': value}]}, traktOnly = True)
         self.refresh()
         
     @property
@@ -314,7 +316,7 @@ class Show(IdentifiableObject, Syncable):
         if 'images' in show and 'fanart' in show['images']:
             local['fanart'] = show['images']['fanart']
         if 'first_aired' in show:
-            local['firstAired'] = show['first_aired']
+            local['firstAired'] = datetime.fromtimestamp(show['first_aired'])
         if 'coutnry' in show:
             local['coutnry'] = show['coutnry']
         if 'network' in show:
@@ -372,10 +374,10 @@ class Show(IdentifiableObject, Syncable):
         changes = list(TCQueue.selectBy(dest='trakt', subject=subject))
         if subject in Show._syncToTrakt:
             try:
-                if subject == 'watchlistStatus':
+                if subject == '_watchlistStatus':
                     Trakt.showWatchlist([change.instance.traktise() for change in changes if change.value == True])
                     Trakt.showUnwatchlist([change.instance.traktise() for change in changes if change.value == False])
-                elif subject == 'rating':
+                elif subject == '_rating':
                     Trakt.rateShows(map(lambda change: change.instance.traktise(), changes))
                 else:
                     raise NotImplementedError("This type, '"+subject+"', can't yet be synced back to trakt, maybe you could fix this.")
@@ -391,7 +393,7 @@ class Show(IdentifiableObject, Syncable):
         if subject in Show._unsafeProperties:
             changes = list(TCQueue.selectBy(dest='cache', subject=subject))
             for change in changes:
-                change.instance['_'+subject] = change.value
+                change.instance[subject] = change.value
                 if change.soft == False:
                     change.instance._lastUpdate[subject] = change.time
         # Remove all, including any ones that could not be implemented
