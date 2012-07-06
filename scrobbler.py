@@ -123,7 +123,7 @@ class Scrobbler():
             match = getEpisodeDetailsFromXbmc(self.curVideo['id'], ['showtitle', 'season', 'episode'])
             if match == None:
                 return
-            responce = watchingEpisodeOnTrakt(None, match['showtitle'], None, match['season'], match['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
+            responce = Trakt.showWatching(None, match['showtitle'], None, match['season'], match['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
             if responce != None:
                 Debug("[Scrobbler] Watch responce: "+str(responce));
         
@@ -134,7 +134,7 @@ class Scrobbler():
         if self.curVideo['type'] == 'movie' and scrobbleMovieOption == 'true':
             Movie.cancelWatching()
         elif self.curVideo['type'] == 'episode' and scrobbleEpisodeOption == 'true':
-            responce = cancelWatchingEpisodeOnTrakt()
+            responce = Trakt.showCancelWatching()
             if responce != None:
                 Debug("[Scrobbler] Cancel watch responce: "+str(responce));
             
@@ -151,7 +151,7 @@ class Scrobbler():
             match = getEpisodeDetailsFromXbmc(self.curVideo['id'], ['showtitle', 'season', 'episode'])
             if match == None:
                 return
-            responce = scrobbleEpisodeOnTrakt(None, match['showtitle'], None, match['season'], match['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
+            responce = Trakt.showScrobble(None, match['showtitle'], None, match['season'], match['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
             if responce != None:
                 Debug("[Scrobbler] Scrobble responce: "+str(responce));
 

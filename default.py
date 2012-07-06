@@ -1,15 +1,35 @@
 # -*- coding: utf-8 -*-
 # 
 
+import time
+global t
+t = time.time()
+def tstampd(string):
+    global t
+    print string + " ["+str(time.time()-t)+"]"
+    t = time.time()
+tstampd("Start")
+
 import sys
 import os
 import xbmcgui,xbmcaddon,xbmc,xbmcplugin
-from utilities import *
+
+
+tstampd("Standard imports")
+def Debug(msg, force=False):
+    if (debug == 'true' or force):
+        try:
+            print "Trakt Utilities: " + unicode(msg)
+        except UnicodeEncodeError:
+            print "Trakt Utilities: " + msg.encode( "utf-8", "ignore" )
+tstampd("from utilities import Debug")
 from friends import *
-from trakt import Trakt
+tstampd("from friends import *")
 
 try: import simplejson as json
 except ImportError: import json
+
+tstampd("import json")
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Justin Nemeth",  "Sean Rudford"]
@@ -30,8 +50,12 @@ def switchBoard():
     if len(sys.argv) < 2:
         menu()
         return
-        
-    for i in range(1, len(sys.argv)): 
+
+    for i in range(1, len(sys.argv)):
+        if i == 2 and sys.argv[i] == "":
+            menu()
+            return
+
         if sys.argv[i].find('?menu=') == 0:
             menuName = sys.argv[i][6:]
             Debug("[Default] Requested menu: "+str(menuName))
@@ -78,7 +102,11 @@ def switchBoard():
             else:
                 Debug("[Default] Unknown action: "+str(actionName))
             continue
-        Debug("[Default] Unknown request: "+str(sys.argv[i]))
+        try:
+            int(sys.argv[i])
+            Debug("[Default] Ignoring number passed: "+str(sys.argv[i]))
+        except  ValueError:
+            Debug("[Default] Unknown request: "+str(sys.argv[i]))
 
 def submenu(menuName, title):
     li = xbmcgui.ListItem(title)
@@ -155,6 +183,7 @@ def stopTraktUtilities():
     result = json.loads(result)
 
 def testing():
+    from trakt import Trakt
     Trakt.testAll()
     """movie = Movie("dummy=1234455")
     movie.rating = "help"
@@ -163,5 +192,8 @@ def testing():
     Debug(str(trakt_cache.getMovieWatchlist()))"""
     xbmcgui.Dialog().ok("Trakt Utilities, TESTS", "Success")
     
+
+tstampd("function defs")
+
 if __name__ == "__main__" :
     switchBoard()

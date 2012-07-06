@@ -35,12 +35,13 @@ def autostart():
         trakt_cache.init(os.path.join(cacheDirectory,"trakt_cache"))
             
         # Initialise the scrobbler
-        global scrobbler
         scrobbler = Scrobbler()
-        scrobbler.start()
-        
+        scrobbler.start().ignore()
+
         # Initialise the notification handler
-        NotificationService().start().ignore()
+        notificationService = NotificationService()
+        notificationService.start().ignore()
+        notificationService.scrobbler = scrobbler
 
         # Trigger update checks for the cache
         trakt_cache.trigger()

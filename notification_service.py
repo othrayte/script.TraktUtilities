@@ -26,6 +26,8 @@ __language__ = __settings__.getLocalizedString
 
 # Receives XBMC notifications and passes them off to the rating functions
 class NotificationService():
+    scrobbler = None
+
     @async
     def start(self):            
         tn = None
@@ -95,12 +97,12 @@ class NotificationService():
         # Forward notification to functions
         if 'method' in data and 'params' in data and 'sender' in data['params'] and data['params']['sender'] == 'xbmc':
             if data['method'] == 'Player.OnStop':
-                scrobbler.playbackEnded()
+                self.scrobbler.playbackEnded()
             elif data['method'] == 'Player.OnPlay':
                 if 'data' in data['params'] and 'item' in data['params']['data'] and 'id' in data['params']['data']['item'] and 'type' in data['params']['data']['item']:
-                    scrobbler.playbackStarted(data['params']['data'])
+                    self.scrobbler.playbackStarted(data['params']['data'])
             elif data['method'] == 'Player.OnPause':
-                scrobbler.playbackPaused()
+                self.scrobbler.playbackPaused()
             elif data['method'] in ('VideoLibrary.OnUpdate', 'VideoLibrary.OnRemove'):
                 if 'data' in data['params']:
                     if 'type' in data['params']['data'] and 'id' in data['params']['data']:

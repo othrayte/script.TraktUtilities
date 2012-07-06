@@ -101,7 +101,7 @@ class Viewer():
     @staticmethod
     def recommendedShows():
 
-        tvshows = getRecommendedTVShowsFromTrakt()
+        tvshows = Trakt.recommendationsShows()
         
         if tvshows == None: # tvshows = None => there was an error
             return # error already displayed in utilities.py
@@ -142,8 +142,8 @@ class Viewer():
     @staticmethod
     def trendingShows():
 
-        tvshows = getTrendingTVShowsFromTrakt()
-        watchlist = traktShowListByTvdbID(getWatchlistTVShowsFromTrakt())
+        tvshows = Trakt.showsTrending()
+        watchlist = traktShowListByTvdbID(Trakt.userWatchlistShows())
         
         if tvshows == None: # tvshows = None => there was an error
             return # error already displayed in utilities.py

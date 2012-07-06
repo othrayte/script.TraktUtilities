@@ -1,26 +1,34 @@
 # -*- coding: utf-8 -*-
 # 
 
+import time
+global t
+t = time.time()
+def tstampd(string):
+    global t
+    print string + " ["+str(time.time()-t)+"]"
+    t = time.time()
+tstampd("Start Util")
+
 import os, sys
 import xbmc,xbmcaddon,xbmcgui
 import time, socket
 
+tstampd("OS Imports")
+
 try: import simplejson as json
 except ImportError: import json
+tstampd("import json")
 
-from nbhttpconnection import *
 from async_tools import *
+tstampd("from async_tools import *")
 
 from exc_types import *
+tstampd("from exc_types import *")
 
 import urllib, re
 
-try:
-    # Python 3.0 +
-    import http.client as httplib
-except ImportError:
-    # Python 2.7 and earlier
-    import httplib
+tstampd("import urllib, re")
 
 try:
     # Python 2.6 +
@@ -33,6 +41,8 @@ except ImportError:
   
 def sha1(*args, **kwargs):
     return sha_new(*args, **kwargs)
+
+tstampd("Import sha")
   
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -51,6 +61,8 @@ pwd = sha1(__settings__.getSetting("password")).hexdigest()
 debug = __settings__.getSetting( "debug" )
 
 headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain"}
+
+tstampd("Settings")
 
 def Debug(msg, force=False):
     if (debug == 'true' or force):
@@ -71,10 +83,8 @@ except:
     pass  
 tuThreads = Pool(10)
 Pool.setGlobalPool(tuThreads)
-
-from trakt import Trakt
-
 def checkSettings(daemon=False):
+    from trakt import Trakt
     if username == "":
         if daemon:
             notification("Trakt Utilities", __language__(1106).encode( "utf-8", "ignore" )) # please enter your Username and Password in settings
@@ -124,47 +134,10 @@ def xbmcHttpapiQuery(query):
 def xbmcHttpapiExec(query):
     xml_data = xbmc.executehttpapi( "ExecVideoDatabase(%s)" % urllib.quote_plus(query), )
     return xml_data
-   
-# get movies from trakt server
-def getMoviesFromTrakt(*args, **argd):
-    return Trakt.userLibraryMoviesAll(username, *args, **argd)
-
-# get movie that are listed as in the users collection from trakt server
-def getMovieCollectionFromTrakt(*args, **argd):
-    return Trakt.userLibraryMoviesCollection(username, *args, **argd)
-
-# add movies to the users collection on trakt
-def addMoviesToTraktCollection(movies, *args, **argd):
-    return Trakt.movieLibrary(movies, *args, **argd)
-
-# remove movies from the users collection on trakt
-def removeMoviesFromTraktCollection(movies, *args, **argd):
-    return Trakt.movieUnlibrary(movies, *args, **argd)
-    
-# get easy access to movie by imdb_id
-def traktMovieListByImdbID(data):
-    trakt_movies = {}
-    if data is None: return None
-    for i in range(0, len(data)):
-        if data[i]['imdb_id'] == "": continue
-        trakt_movies[data[i]['imdb_id']] = data[i]
-        
-    return trakt_movies
-    
-# get easy access to show by remoteId
-def traktShowListByRemoteId(data):
-    trakt_shows = {}
-
-    for show in data:
-        if 'tvdb_id' in show and show['tvdb_id'] not in ("", None):
-            trakt_shows[show['tvdb_id']] = show
-        elif 'imdb_id' in show and show['imdb_id'] not in ("", None):
-            trakt_shows[show['imdb_id']] = show
-        
-    return trakt_shows
     
 # search movies on trakt
 def searchTraktForMovie(title, year=None):
+    from trakt import Trakt
     query = urllib.quote_plus(title.encode('ascii', 'replace'))
     data = Trakt.searchMovies(query)
     if data is None:
@@ -195,6 +168,12 @@ def searchTraktForMovie(title, year=None):
 
 # search imdb via google
 def searchGoogleForImdbId(query):
+    try:
+        # Python 3.0 +
+        import http.client as httplib
+    except ImportError:
+        # Python 2.7 and earlier
+        import httplib
     conn = httplib.HTTPConnection("ajax.googleapis.com")
     conn.request("GET", "/ajax/services/search/web?v=1.0&q=site:www.imdb.com+"+urllib.quote_plus(query.encode('utf-8')))
     response = conn.getresponse()
@@ -212,15 +191,6 @@ def searchGoogleForImdbId(query):
         return None
     return None
     
-# get movie summary from trakt server
-# title: Either the slug (i.e. the-social-network-2010), IMDB ID, or TMDB ID.
-def getMovieFromTrakt(title, *args, **argd):
-    return Trakt.movieSummary(title, *args, **argd)
-
-# get shows from trakt server
-def getShowsFromTrakt(*args, **argd):
-    return Trakt.userLibraryShowsAll(username, *args, **argd)
-    
 # get easy access to tvshow by tvdb_id
 def traktShowListByTvdbID(data):
     trakt_tvshows = {}
@@ -230,173 +200,29 @@ def traktShowListByTvdbID(data):
         
     return trakt_tvshows
 
-# get seen tvshows from trakt server
-def getWatchedTVShowsFromTrakt(*args, **argd):
-    return Trakt.userLibraryShowsWatched(username, *args, **argd)
-
-# set episodes seen on trakt
-def setEpisodesSeenOnTrakt(tvdbId, title, year, episodes, imdbId=None, *args, **argd):
-    return Trakt.showEpisodeSeen(tvdbId, title, year, episodes, imdbId, *args, **argd)
-
-# set episodes unseen on trakt
-def setEpisodesUnseenOnTrakt(tvdbId, title, year, episodes, imdbId=None, *args, **argd):
-    return Trakt.showEpisodeUnseen(tvdbId, title, year, episodes, imdbId, *args, **argd)
-
-# set movies seen on trakt
-#  - movies, required fields are 'plays', 'last_played' and 'title', 'year' or optionally 'imdb_id'
-def setMoviesSeenOnTrakt(movies, *args, **argd):
-    return Trakt.movieSeen(movies, *args, **argd)
-
-# set movies unseen on trakt
-#  - movies, required fields are 'plays', 'last_played' and 'title', 'year' or optionally 'imdb_id'
-def setMoviesUnseenOnTrakt(movies, *args, **argd):
-    return Trakt.movieUnseen(movies, *args, **argd)
-
-# get tvshow collection from trakt server
-def getTVShowCollectionFromTrakt(*args, **argd):
-    return Trakt.userLibraryShowsCollection(username, *args, **argd)
-
-# add a whole tv show to the users collection
-def addWholeTvShowToTraktCollection(tvdb_id, title, year, imdb_id=None, *args, **argd):
-    return Trakt.showLibrary(tvdbId, title, year, imdbId, *args, **argd)
-
-# add individual episodes of a tshow to the users trakt collection
-def addEpisodesToTraktCollection(tvdb_id, title, year, episodes, imdb_id=None, *args, **argd):
-    return Trakt.showEpisodeLibrary(tvdbId, title, year, imdbId, *args, **argd)
-
-# remove a whole tv show from the users collection
-def removeWholeTvShowFromTraktCollection(tvdb_id, title, year, imdb_id=None, *args, **argd):
-    return Trakt.showUnlibrary(tvdbId, title, year, imdbId, *args, **argd)
-
-# remove individual episodes of a tshow from the users trakt collection
-def removeEpisodesFromTraktCollection(tvdb_id, title, year, episodes, imdb_id=None, *args, **argd):
-    return Trakt.showUnlibrary(tvdbId, title, year, episodes, imdbId, *args, **argd)
-
 # get tvshows from XBMC
 def getTVShowsFromXBMC():
-    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetTVShows','params':{'properties': ['title', 'year', 'imdbnumber', 'playcount']}, 'id': 1})
-    
-    result = xbmc.executeJSONRPC(rpccmd)
-    result = json.loads(result)
-    
-    # check for error
-    try:
-        error = result['error']
-        Debug("getTVShowsFromXBMC: " + str(error))
-        return None
-    except KeyError:
-        pass # no error
-    
-    try:
-        return result['result']
-    except KeyError:
-        Debug("getTVShowsFromXBMC: KeyError: result['result']")
-        return None
+    raise Exception("Deprecated")
     
 # get seasons for a given tvshow from XBMC
 def getSeasonsFromXBMC(tvshow):
-    #Debug("getSeasonsFromXBMC: "+str(tvshow))
-    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetSeasons','params':{'tvshowid': tvshow['tvshowid'], 'properties': ['season']}, 'id': 1})
-    
-    result = xbmc.executeJSONRPC(rpccmd)
-    result = json.loads(result)
-    
-    # check for error
-    try:
-        error = result['error']
-        Debug("getSeasonsFromXBMC: " + str(error))
-        return None
-    except KeyError:
-        pass # no error
-
-    try:
-        return result['result']
-    except KeyError:
-        Debug("getSeasonsFromXBMC: KeyError: result['result']")
-        return None
+    raise Exception("Deprecated")
     
 # get episodes for a given tvshow / season from XBMC
 def getEpisodesFromXBMC(tvshow, season):
-    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetEpisodes','params':{'tvshowid': tvshow['tvshowid'], 'season': season, 'properties': ['title', 'playcount', 'season', 'episode', 'firstaired', 'rating']}, 'id': 1})
-    
-    result = xbmc.executeJSONRPC(rpccmd)
-    result = json.loads(result)
-
-    # check for error
-    try:
-        error = result['error']
-        Debug("getEpisodesFromXBMC: " + str(error))
-        return None
-    except KeyError:
-        pass # no error
-
-    try:
-        return result['result']
-    except KeyError:
-        Debug("getEpisodesFromXBMC: KeyError: result['result']")
-        return None
+    raise Exception("Deprecated")
 
 # get a single episode from xbmc given the id
 def getEpisodeDetailsFromXbmc(libraryId, fields):
-    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetEpisodeDetails','params':{'episodeid': libraryId, 'properties': fields}, 'id': 1})
-    
-    result = xbmc.executeJSONRPC(rpccmd)
-    result = json.loads(result)
-
-    # check for error
-    try:
-        error = result['error']
-        Debug("getEpisodeDetailsFromXbmc: " + str(error))
-        return None
-    except KeyError:
-        pass # no error
-
-    try:
-        return result['result']['episodedetails']
-    except KeyError:
-        Debug("getEpisodeDetailsFromXbmc: KeyError: result['result']['episodedetails']")
-        return None
+    raise Exception("Deprecated")
 
 # get movies from XBMC
 def getMoviesFromXBMC():
-    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetMovies','params':{'properties': ['title', 'year', 'originaltitle', 'imdbnumber', 'playcount', 'lastplayed', 'runtime']}, 'id': 1})
-
-    result = xbmc.executeJSONRPC(rpccmd)
-    result = json.loads(result)
-    
-    # check for error
-    try:
-        error = result['error']
-        Debug("getMoviesFromXBMC: " + str(error))
-        return None
-    except KeyError:
-        pass # no error
-    
-    try:
-        return result['result']['movies']
-        Debug("getMoviesFromXBMC: KeyError: result['result']['movies']")
-    except KeyError:
-        return None
+    raise Exception("Deprecated")
 
 # get a single movie from xbmc given the id
 def getMovieDetailsFromXbmc(libraryId, fields):
-    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetMovieDetails','params':{'movieid': libraryId, 'properties': fields}, 'id': 1})
-    result = xbmc.executeJSONRPC(rpccmd)
-    result = json.loads(result)
-
-    # check for error
-    try:
-        error = result['error']
-        Debug("getMovieDetailsFromXbmc: " + str(error))
-        return None
-    except KeyError:
-        pass # no error
-
-    try:
-        return result['result']['moviedetails']
-    except KeyError:
-        Debug("getMovieDetailsFromXbmc: KeyError: result['result']['moviedetails']")
-        return None
+    raise Exception("Deprecated")
 
 # sets the playcount of a given movie by imdbid
 def setXBMCMoviePlaycount(imdb_id, playcount):
@@ -580,108 +406,6 @@ def getShowIdFromXBMC(tvdb_id, title):
         return -1
         
     return match[0]
-
-# returns list of movies from watchlist
-def getWatchlistMoviesFromTrakt(*args, **argd):
-    return Trakt.userWatchlistMovies(username, *args, **argd)
-
-# returns list of tv shows from watchlist
-def getWatchlistTVShowsFromTrakt(*args, **argd):
-    return Trakt.userWatchlistShows(username, *args, **argd)
-
-# add an array of movies to the watch-list
-def addMoviesToWatchlist(movies, *args, **argd):
-    return Trakt.movieWatchlist(movies, *args, **argd)
-
-# remove an array of movies from the watch-list
-def removeMoviesFromWatchlist(movies, *args, **argd):
-    return Trakt.movieUnwatchlist(movies, *args, **argd)
-
-# add an array of tv shows to the watch-list
-def addTVShowsToWatchlist(shows, *args, **argd):
-    return Trakt.showWatchlist(shows, *args, **argd)
-
-# remove an array of tv shows from the watch-list
-def removeTVShowsFromWatchlist(shows, *args, **argd):
-    return Trakt.showUnwatchlist(shows, *args, **argd)
-
-#Set the rating for a movie on trakt, rating: "hate" = Weak sauce, "love" = Totaly ninja
-def rateMovieOnTrakt(movie, rating, *args, **argd):
-    return Trakt.rateMovie(movie['imdb_id'], movie['title'], movie['year'], rating, movie['tmdb_id'], *args, **argd)
-
-#Get the rating for a movie from trakt
-def getMovieRatingFromTrakt(imdbid, title, year, *args, **argd):
-    if imdbid is None or imdbid == "":
-        data = Trakt.movieSummary(title, *args, **argd)
-    else:
-        data = Trakt.movieSummary(imdbid, *args, **argd)
-    
-    if data == None:
-        return None
-        
-    if 'rating' in data:
-        return data['rating']
-        
-    Debug("Error in request from 'getMovieRatingFromTrakt()'")
-    return None
-
-#Set the rating for a tv episode on trakt, rating: "hate" = Weak sauce, "love" = Totaly ninja
-def rateEpisodeOnTrakt(tvdbId, title, year, season, episode, rating, imdbId=None, *args, **argd):
-    return Trakt.rateEpisode(tvdbId, title, year, season, episode, rating, imdbId, *args, **argd)
-    
-#Get the rating for a tv episode from trakt
-def getEpisodeRatingFromTrakt(tvdbid, title, year, season, episode, *args, **argd):
-    if tvdbid is None or tvdbid == "":
-        data = Trakt.showEpisodeSummary(title, season, episode, *args, **argd)
-    else:
-        data = Trakt.showEpisodeSummary(tvdbid, season, episode, *args, **argd)
-        
-    if data == None:
-        return None
-        
-    if 'rating' in data:
-        return data['rating']
-        
-    Debug("Error in request from 'getEpisodeRatingFromTrakt()'")
-    return None
-
-#Set the rating for a tv show on trakt, rating: "hate" = Weak sauce, "love" = Totaly ninja
-def rateShowOnTrakt(tvdbid, title, year, rating, imdbId=None, *args, **argd):
-    return Trakt.rateShow(tvdbId, title, year, rating, imdbId, *args, **argd)
-
-#Get the rating for a tv show from trakt
-def getShowRatingFromTrakt(tvdbid, title, year):
-    if imdbid is None or imdbid == "":
-        data = Trakt.showSummary(title, extended=None, *args, **argd)
-    else:
-        data = Trakt.showSummary(tvdbid, extended=None, *args, **argd)
-        
-    if data == None:
-        return None
-        
-    if 'rating' in data:
-        return data['rating']
-        
-    Debug("Error in request from 'getShowRatingFromTrakt()'")
-    return None
-
-def getRecommendedMoviesFromTrakt(*args, **argd):
-    return Trakt.recommendationsMovies(*args, **argd)
-
-def getRecommendedTVShowsFromTrakt(*args, **argd):
-    return Trakt.recommendationsShows(*args, **argd)
-
-def getTrendingMoviesFromTrakt(*args, **argd):
-    return Trakt.moviesTrending(*args, **argd)
-
-def getTrendingTVShowsFromTrakt(*args, **argd):
-    return Trakt.showsTrending(*args, **argd)
-
-def getFriendsFromTrakt(*args, **argd):
-    return Trakt.userFriends(username, *args, **argd)
-
-def getWatchingFromTraktForUser(name, *args, **argd):
-    return Trakt.userWatching(name, *args, **argd)
     
 def playMovieById(idMovie = None, options = None):
     if (idMovie is None and options is None): return
@@ -741,40 +465,8 @@ def playMovieById(idMovie = None, options = None):
 def validRemoteId(remoteId):
     if remoteId is None or not (isinstance(remoteId, str) or isinstance(remoteId, unicode)) or len(remoteId) == 0 or remoteId[0] == '_': return False
     return True
-            
-###############################
-##### Scrobbling to trakt #####
-###############################
-
-#tell trakt that the user is watching a movie
-def watchingMovieOnTrakt(movie, progress, *args, **argd):
-    duration = 90
-    if 'runtime' in movie: duration = movie['runtime']
-    return Trakt.movieWatching(movie['imdb_id'], movie['title'], movie['year'], duration, progress, *args, **argd)
-
-#tell trakt that the user is watching an episode
-def watchingEpisodeOnTrakt(tvdbId, title, year, season, episode, duration, progess, imdbId=None, *args, **argd):
-    return Trakt.showWatching(tvdbId, title, year, season, episode, duration, progess, imdbId, *args, **argd)
-
-#tell trakt that the user has stopped watching a movie
-def cancelWatchingMovieOnTrakt(*args, **argd):
-    return Trakt.movieCancelWatching(*args, **argd)
-
-#tell trakt that the user has stopped an episode
-def cancelWatchingEpisodeOnTrakt(*args, **argd):
-    return Trakt.showCancelWatching(*args, **argd)
-
-#tell trakt that the user has finished watching an movie
-def scrobbleMovieOnTrakt(movie, progress, *args, **argd):
-    duration = 90
-    if 'runtime' in movie: duration = movie['runtime']
-    return Trakt.movieScrobble(movie['imdb_id'], movie['title'], movie['year'], duration, progress, *args, **argd)
-
-#tell trakt that the user has finished watching an episode
-def scrobbleEpisodeOnTrakt(tvdbId, title, year, season, episode, duration, progess, imdbId=None, *args, **argd):
-    return Trakt.showScrobble(tvdbId, title, year, season, episode, duration, progess, imdbId, *args, **argd)
-
-            
+  
+tstampd("Defs")
 """
 ToDo:
 

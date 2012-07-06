@@ -35,12 +35,12 @@ class Pool():
         self.closing = False
     
     def x(self, func, *args, **kwargs):
-        return AsyncCall(func, pool=self, *args, **kwargs)
+        return AsyncCall(func, self, *args, **kwargs)
     
     def map(self, func, vals):
         results = []
         for val in vals:
-            results.append(self.x(func, val))
+            results.append(self.x(func, *val))
         out = []
         for result in results:
             out.append(result.need())

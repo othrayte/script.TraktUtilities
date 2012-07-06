@@ -472,7 +472,7 @@ class Trakt():
     @staticmethod
     def movieWatching(imdbId, title, year, duration, progress, tmdbId=None, *args, **argd):
         argd['passVersions'] = True
-        data = Trakt.jsonRequest('POST', '/movie/watching/%%API_KEY%%', {'imdb_id': imdbId, 'title': title, 'year': year, 'duration': duration, 'progress': progress, 'tmdb_id': tmdbId}, *args, **argd)
+        data = Trakt.jsonRequest('POST', '/movie/watching/%%API_KEY%%', {'imdb_id': imdbId, 'tmdb_id': tmdbId, 'title': title, 'year': year, 'duration': duration, 'progress': progress, 'tmdb_id': tmdbId}, *args, **argd)
         if data == None:
             Debug("[Trakt] Error in request from 'movieWatching()'")
         return data
@@ -506,6 +506,13 @@ class Trakt():
         return data
         
     @staticmethod
+    def rateEpisodes(episodes, *args, **argd):
+        data = Trakt.jsonRequest('POST', '/rate/episode/%%API_KEY%%', {'episodes': episodes}, *args, **argd)
+        if data == None:
+            Debug("[Trakt] Error in request from 'rateEpisodes()'")
+        return data
+        
+    @staticmethod
     def rateMovie(imdbId, title, year, rating, tmdbId=None, *args, **argd):
         data = Trakt.jsonRequest('POST', '/rate/movie/%%API_KEY%%', {'imdb_id': imdbId, 'title': title, 'year': year, 'rating': rating, 'tmdb_id': tmdbId}, *args, **argd)
         if data == None:
@@ -513,10 +520,24 @@ class Trakt():
         return data
         
     @staticmethod
+    def rateMovies(movies, *args, **argd):
+        data = Trakt.jsonRequest('POST', '/rate/movie/%%API_KEY%%', {'movies': movies}, *args, **argd)
+        if data == None:
+            Debug("[Trakt] Error in request from 'rateMovies()'")
+        return data
+        
+    @staticmethod
     def rateShow(tvdbId, title, year, rating, imdbId=None, *args, **argd):
         data = Trakt.jsonRequest('POST', '/rate/show/%%API_KEY%%', {'tvdb_id': tvdbId, 'title': title, 'year': year, 'rating': rating, 'imdb_id': imdbId}, *args, **argd)
         if data == None:
             Debug("[Trakt] Error in request from 'rateShow()'")
+        return data
+        
+    @staticmethod
+    def rateShows(shows, *args, **argd):
+        data = Trakt.jsonRequest('POST', '/rate/show/%%API_KEY%%', {'shows': shows}, *args, **argd)
+        if data == None:
+            Debug("[Trakt] Error in request from 'rateShows()'")
         return data
         
     @staticmethod
@@ -804,7 +825,7 @@ class Trakt():
         return data
         
     @staticmethod
-    def userFriends(username, extended=None, *args, **argd):
+    def userFriends(username=username, extended=None, *args, **argd):
         ext = ""
         if extended is not None: etx = "/"+str(extended)
         data = Trakt.jsonRequest('POST', '/user/friends.json/%%API_KEY%%/'+str(username)+ext, *args, **argd)
@@ -957,7 +978,7 @@ class Trakt():
         return data
         
     @staticmethod
-    def userWatchlistShows(username, *args, **argd):
+    def userWatchlistShows(username=username, *args, **argd):
         data = Trakt.jsonRequest('POST', '/user/watchlist/shows.json/%%API_KEY%%/'+str(username), *args, **argd)
         if data == None:
             Debug("[Trakt] Error in request from 'userWatchlistShows()'")

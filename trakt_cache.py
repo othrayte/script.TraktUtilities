@@ -13,6 +13,7 @@ from ids import *
 from datetime import timedelta, datetime
 import shelve
 from trakt import Trakt
+from xbmc_video_library import XbmcVideoLibrary
 from async_tools import Pool, AsyncCall, async
 
 from exceptions import *
@@ -329,69 +330,7 @@ def toDebugFile(changes, destination):
 
 ##
 # DB Readers
-##
-
-@async
-def _copyTraktMovies():
-    movies = {}
-    traktMovies = AsyncCall(Trakt.userLibraryMoviesAll, None, username, daemon=True)
-    watchlistMovies = AsyncCall(Trakt.userWatchlistMovies, None, username)
-    
-    traktMovies = ~traktMovies
-    watchlistMovies = ~watchlistMovies
-    
-    if traktMovies is None: return movies
-    watchlistMovies = traktMovieListByImdbID(watchlistMovies)
-    for movie in traktMovies:
-        local = Movie.fromTrakt(movie)
-        if local is None:
-            continue
-        if watchlistMovies is not None and 'imdb_id' in movie:
-            local._watchlistStatus = movie['imdb_id'] in watchlistMovies
-        movies[local._remoteId] = local
-    return movies
-
-@async
-def _copyTraktShows():
-    shows = {}
-    traktShows = Trakt.userLibraryShowsAll(username, daemon=True)
-    
-    for show in traktShows:
-        local = Show.fromTrakt(show)
-        if local is None:
-            continue
-        shows[local._remoteId] = local
-    return shows
-
-@async
-def _copyTraktEpisodes():
-    episodes = {}
-    traktShowsCollection = Trakt.userLibraryShowsCollection(username, daemon=True)
-    
-    for show in traktShowsCollection:
-        local = Show.fromTrakt(show)
-        if local is None: continue
-        remoteId = local._remoteId
-        for season in show['seasons']:
-            s = season['season']
-            for e in season['episodes']:
-                episode = Episode(str(remoteId)+'@'+str(s)+'x'+str(e), static=True)
-                episode._libraryStatus = True;
-                episodes[episode._remoteId] = episode
-    return episodes
-    
-def _copyTrakt():
-    traktData = {}
-                        
-    movies = _copyTraktMovies()
-    shows = _copyTraktShows()
-    episodes = _copyTraktEpisodes()
-        
-    traktData['movies'] = ~movies
-    traktData['shows'] = ~shows
-    traktData['episodes'] = ~episodes
-    
-    return traktData    
+##  
 
 def _copyXbmc():
     xbmcData = {}
@@ -955,51 +894,26 @@ def refreshFromFriendsActivity(lastTimestamp):
    
 def getMovieLibrary():
     needSyncAtLeast(['movielibrary'])
-    items = []
-    for remoteId in movies:
-        if not validRemoteId(remoteId): continue
-        movie = movies[remoteId]
-        if movie is None:
-            continue
-        items.append(movie)
-    return items
+    return list(Movie.selectBy(_libraryStatus = True))
+
 def getShows():
     raise NotImplementedError()
+
 def getShowEpisodes():
-    raise NotImplementedError()
+    raise Exception("Deprecate, use SHow.episodes instead")
+
 def getMovieWatchlist():
     needSyncAtLeast(['moviewatchlist'])
-    watchlist = []
-    for remoteId in movies:
-        if not validRemoteId(remoteId): continue
-        movie = movies[remoteId]
-        if movie is None:
-            continue
-        if movie['_watchlistStatus'] == True:
-            watchlist.append(movie)
-    return watchlist    
+    return list(Movie.selectBy(_watchlistStatus = True))
+
 def getShowWatchlist():
     needSyncAtLeast(['showwatchlist'])
-    watchlist = []
-    for remoteId in shows:
-        if not validRemoteId(remoteId): continue
-        show = shows[remoteId]
-        if show is None:
-            continue
-        if show['_watchlistStatus'] == True:
-            watchlist.append(show)
-    return watchlist  
+    return list(Show.selectBy(_watchlistStatus = True))
+
 def getRecommendedMovies():
     needSyncAtLeast(['movierecommended'])
-    items = []
-    for remoteId in movies:
-        if not validRemoteId(remoteId): continue
-        movie = movies[remoteId]
-        if movie is None:
-            continue
-        if movie['_recommendedStatus'] == True:
-            items.append(movie)
-    return items
+    return list(Show.selectBy(_recommendedStatus = True))
+
 def getTrendingMovies():
     traktItems = Trakt.moviesTrending();
     items = []
@@ -1036,8 +950,9 @@ def refreshSet(set, _structure=None, force=False):
 def refreshMovieLibrary():
     Debug("[TraktCache] Refreshing movie library")
     traktSet = Movie.setFromTrakt('_libraryStatus', Trakt.userLibraryMoviesCollection(username))
-    xbmcSet = Movie.setFromXBMC('_libraryStatus', XBMC.)
-    diff = Movie.diffSet('_libraryStatus', None, traktSet)
+    xbmcSet = Movie.setFromXbmc('_libraryStatus', XbmcVideoLibrary.getMovies())
+    Debug("[~] "+str(xbmcSet))
+    diff = Movie.diffSet('_libraryStatus', xbmcSet, traktSet)
     TCQueue.add(diff)
     updateCache()
     updateSyncTimes(['movielibrary'])

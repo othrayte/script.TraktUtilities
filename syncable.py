@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # 
 
-from ids import RemoteId
+from ids import RemoteId, LocalId
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -33,12 +33,22 @@ class Syncable:
             set.append(local)
         return set
 
+    @classmethod
+    def setFromXbmc(cls, key, array):
+        set = []
+        if array is None: raise TypeError("Needed an iterable type, usually an array but got NoneType")
+        for item in array:
+            local = cls.fromXbmc(item)
+            local[key] = True
+            set.append(local)
+        return set
+
     #Merging object data
     @staticmethod
     def mergeListStatic(list):
         movie = {}
         for item in list:
-            mergeStatic(movie, item)
+            Syncable.mergeStatic(movie, item)
         return movie
     
     @staticmethod
@@ -319,7 +329,7 @@ class Syncable:
                 results += RemoteId.selectBy(source=source, remoteid=instance['_remoteIds'][source])
         if '_localIds' in instance:
             for localId in instance['_localIds']:
-                results += LocalId.selectBy(localId)
+                results += LocalId.selectBy(localid=localId)
         results = [result.get() for result in results]
         return results
 

@@ -15,6 +15,7 @@ from ids import RemoteId, LocalId
 from syncable import Syncable
 from identifiable_object import IdentifiableObject
 from tc_queue import TCQueue
+from exc_types import *
 
 __author__ = "Ralph-Gordon Paul, Adrian Cowan"
 __credits__ = ["Ralph-Gordon Paul", "Adrian Cowan", "Justin Nemeth",  "Sean Rudford"]
@@ -294,7 +295,7 @@ class Episode(IdentifiableObject, Syncable):
             #select = Select(Ep['instance', 'AVG(salary)'], staticTables=['employees'],
             try:
                 if subject == '_watchlistStatus':
-                    Trakt.Watchlist([change.instance.traktise() for change in changes if change.value == True])
+                    Trakt.movieWatchlist([change.instance.traktise() for change in changes if change.value == True])
                     Trakt.movieUnwatchlist([change.instance.traktise() for change in changes if change.value == False])
                 elif subject == '_playcount':
                     Trakt.movieSeen([change.instance.traktise() for change in changes if change.value > 0])
@@ -307,7 +308,7 @@ class Episode(IdentifiableObject, Syncable):
                 else:
                     raise NotImplementedError("This type, '"+subject+"', can't yet be synced back to trakt, maybe you could fix this.")
             except TraktRequestFailed:
-                mutate(TraktUpdateFailed, "Failed trakt.tv request prevented sending of info to trakt, this info will be resent next time: ")
+                Debug("[Episode] Failed trakt.tv request prevented sending of info to trakt, this info will be resent next time: ")
         # Succeeded or ignored pass to cache
         changes = query.lazyColumns(True) # Don't need to get al the info out again
         for change in changes:

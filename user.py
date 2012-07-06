@@ -388,16 +388,6 @@ class User(object):
         """The movies fanart image."""
         trakt_cache.needSyncAtLeast(remoteIds = [self._remoteId])
         return self._fanart
-        
-    def scrobble(self, progress):
-        scrobbleMovieOnTrakt(self.traktise(), progress)
-    def shout(self, text):
-        raise NotImplementedError("This function has not been written")
-    def watching(self, progress):
-        watchingMovieOnTrakt(self.traktise(), progress)
-    @staticmethod
-    def cancelWatching():
-        cancelWatchingMovieOnTrakt()
     
     def Property(func):
         return property(**func()) 
@@ -448,7 +438,7 @@ class User(object):
     @staticmethod
     def download(remoteId):
         Debug("[Movie] Downloading info for "+str(Movie.devolveId(remoteId)))
-        local = getMovieFromTrakt(Movie.devolveId(remoteId))
+        local = Trakt.movieSummary(Movie.devolveId(remoteId))
         if local is None:
             movie = Movie(remoteId)
             movie._traktDbStatus = False
