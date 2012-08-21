@@ -496,7 +496,7 @@ class RateMovieDialog(xbmcgui.WindowXMLDialog):
         buttonCode =  action.getButtonCode()
         actionID   =  action.getId()
         
-        if action.getId() in (0, 107):
+        if action.getId() in (0, 1, 2, 3, 4, 107):
             return
         if action.getId() in (ACTION_PARENT_DIRECTORY, ACTION_PREVIOUS_MENU):
             Debug("Closing RateMovieDialog")
@@ -567,7 +567,7 @@ class RateEpisodeDialog(xbmcgui.WindowXMLDialog):
         buttonCode =  action.getButtonCode()
         actionID   =  action.getId()
         
-        if action.getId() in (0, 107):
+        if action.getId() in (0, 1, 2, 3, 4, 107):
             return
         if action.getId() in (ACTION_PARENT_DIRECTORY, ACTION_PREVIOUS_MENU):
             Debug("Closing RateEpisodeDialog")
@@ -632,7 +632,7 @@ class RateShowDialog(xbmcgui.WindowXMLDialog):
         buttonCode =  action.getButtonCode()
         actionID   =  action.getId()
         
-        if action.getId() in (0, 107):
+        if action.getId() in (0, 1, 2, 3, 4, 107):
             return
         if action.getId() in (ACTION_PARENT_DIRECTORY, ACTION_PREVIOUS_MENU):
             Debug("Closing RateShowDialog")
