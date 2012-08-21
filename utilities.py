@@ -75,15 +75,16 @@ def checkSettings(daemon=False):
             __settings__.openSettings()
         return False
     
-    data = traktJsonRequest('POST', '/account/test/%%API_KEY%%', silent=True)
-    if data == None: #Incorrect trakt login details
+    data = traktJsonRequest('POST', '/account/test/%%API_KEY%%', returnStatus=True, silent=True)
+    if data is None or (data['status'] == 'failure' and data['error'] <> 'failed authentication'): # unable to connect
+        Debug("Unable to connect to trakt.tv to verify the login details, continuing anyway. Error: " + str(data['error']))
+    elif data['status'] != 'success': #Incorrect trakt login details
         if daemon:
             notification("Trakt Utilities", __language__(1110).encode( "utf-8", "ignore" )) # please enter your Password in settings
         else:
             xbmcgui.Dialog().ok("Trakt Utilities", __language__(1110).encode( "utf-8", "ignore" )) # please enter your Password in settings
             __settings__.openSettings()
         return False
-        
     return True
 
 # SQL string quote escaper
