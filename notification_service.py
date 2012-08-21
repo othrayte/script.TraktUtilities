@@ -24,6 +24,18 @@ __status__ = "Production"
 __settings__ = xbmcaddon.Addon( "script.traktutilities" )
 __language__ = __settings__.getLocalizedString
 
+jsonPort = 9090
+if os.path.exists(xbmc.translatePath("special://userdata/advancedsettings.xml")):
+    from xml.etree.ElementTree import ElementTree
+    advancedsettings = ElementTree()
+    advancedsettings.parse(xbmc.translatePath("special://userdata/advancedsettings.xml"))
+    settings = advancedsettings.getroot().find("jsonrpc")
+    if settings is not None:
+        for setting in settings:
+            if setting.tag == 'tcpport':
+                jsonPort = int(setting.text)
+
+
 # Receives XBMC notifications and passes them off to the rating functions
 class NotificationService(threading.Thread):
     abortRequested = False
@@ -35,7 +47,8 @@ class NotificationService(threading.Thread):
         while (not (self.abortRequested or xbmc.abortRequested)):
             time.sleep(1)
             try:
-                tn = telnetlib.Telnet('localhost', 9090, 10)
+                tn = telnetlib.Telnet('localhost', jsonPort, 10)
+
             except IOError as (errno, strerror):
                 #connection failed, try again soon
                 Debug("[Notification Service] Telnet too soon? ("+str(errno)+") "+strerror)
