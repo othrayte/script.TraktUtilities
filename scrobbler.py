@@ -20,7 +20,7 @@ __status__ = "Production"
 __settings__ = xbmcaddon.Addon( "script.traktutilities" )
 __language__ = __settings__.getLocalizedString
 
-apikey = '0a698a20b222d0b8637298f6920bf03a' # scrobbling requires this dev key
+apikey = '48dfcb4813134da82152984e8c4f329bc8b8b46a' # scrobbling requires this dev key
 username = __settings__.getSetting("username")
 pwd = sha.new(__settings__.getSetting("password")).hexdigest()
 debug = __settings__.getSetting( "debug" )
