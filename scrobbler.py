@@ -123,10 +123,13 @@ class Scrobbler(threading.Thread):
             if responce != None:
                 Debug("[Scrobbler] Watch responce: "+str(responce));
         elif self.curVideo['type'] == 'episode' and scrobbleEpisodeOption == 'true':
-            match = getEpisodeDetailsFromXbmc(self.curVideo['id'], ['showtitle', 'season', 'episode'])
-            if match == None:
+            episodeDetails = getEpisodeDetailsFromXbmc(self.curVideo['id'], ['tvshowid', 'season', 'episode'])
+            if episodeDetails == None:
                 return
-            responce = watchingEpisodeOnTrakt(None, match['showtitle'], None, match['season'], match['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
+            showDetails = getTVShowDetailsFromXbmc(episodeDetails['tvshowid'], ['imdbnumber', 'title', 'year'])
+            if showDetails == None:
+                return
+            responce = watchingEpisodeOnTrakt(showDetails['imdbnumber'], showDetails['title'], showDetails['year'], episodeDetails['season'], episodeDetails['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
             if responce != None:
                 Debug("[Scrobbler] Watch responce: "+str(responce));
         
@@ -155,10 +158,13 @@ class Scrobbler(threading.Thread):
             if responce != None:
                 Debug("[Scrobbler] Scrobble responce: "+str(responce));
         elif self.curVideo['type'] == 'episode' and scrobbleEpisodeOption == 'true':
-            match = getEpisodeDetailsFromXbmc(self.curVideo['id'], ['showtitle', 'season', 'episode'])
-            if match == None:
+            episodeDetails = getEpisodeDetailsFromXbmc(self.curVideo['id'], ['tvshowid', 'season', 'episode'])
+            if episodeDetails == None:
                 return
-            responce = scrobbleEpisodeOnTrakt(None, match['showtitle'], None, match['season'], match['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
+            showDetails = getTVShowDetailsFromXbmc(episodeDetails['tvshowid'], ['imdbnumber', 'title', 'year'])
+            if showDetails == None:
+                return
+            responce = scrobbleEpisodeOnTrakt(showDetails['imdbnumber'], showDetails['title'], showDetails['year'], episodeDetails['season'], episodeDetails['episode'], self.totalTime/60, int(100*self.watchedTime/self.totalTime))
             if responce != None:
                 Debug("[Scrobbler] Scrobble responce: "+str(responce));
 
