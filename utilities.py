@@ -300,7 +300,7 @@ def getTVShowsFromXBMC():
 
 # get a single tvshow from xbmc given the id
 def getTVShowDetailsFromXbmc(libraryId, fields):
-    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetEpisodeDetails','params':{'tvshowid': libraryId, 'properties': fields}, 'id': 1})
+    rpccmd = json.dumps({'jsonrpc': '2.0', 'method': 'VideoLibrary.GetTVShowDetails','params':{'tvshowid': libraryId, 'properties': fields}, 'id': 1})
     
     result = xbmc.executeJSONRPC(rpccmd)
     result = json.loads(result)
